@@ -3,8 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <winsock2.h>
 
 #define MAXLINE    511
 #define BLOCK      255
@@ -22,7 +21,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
     
-    if((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+    if((s = socket(PF_INET, SOCK_DGRAM, 0))  <0  ) {
         perror("socket fail");
         exit(0);
     }
