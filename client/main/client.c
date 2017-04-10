@@ -4,7 +4,8 @@
 #include <winsock2.h>
  #define BUF_SIZE 100
 void ErrorHandling(char* message);
- 
+
+
 int main(int argc, char* argv[])
 {
     WSADATA wsaData;
@@ -15,7 +16,7 @@ int main(int argc, char* argv[])
     int strLen;
     if(argc != 4)
     {
-        printf("Usage : %s\n <IP> <PORT> <Msg>", argv[0]);
+        printf("Usage : %s\n <IP> <PORT> <Path>", argv[0]);
     }
  
     // socket library reset
@@ -33,31 +34,29 @@ int main(int argc, char* argv[])
     //servAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	servAddr.sin_port = htons(atoi(argv[2]));
  	
- 	strLen=strlen(argv[3]);
- 	strcpy(message,argv[3]);
+ 	//strLen=strlen(argv[3]);
+ 	//strcpy(message,argv[3]);
     
  	//data send
  	printf("SEND!!!!%s\n",message);
  	
- 	while(1){
+ 	FILE *Read=fopen(argv[3],"r");
+ 	char text_buf[BUF_SIZE+1];
+ 	
+ 	if(Read==NULL){
+ 		ErrorHandling("Read ERROR!");
+ 	}
+ 	
+ 	
+ 	while(fgets(text_buf,BUF_SIZE,Read)){
 	
 	 	
-	 	sendto(hSocket, message, strlen(message)+1, 0, (SOCKADDR*)&servAddr, sizeof(servAddr));
+	 	sendto(hSocket, text_buf, strlen(text_buf)+1, 0, (SOCKADDR*)&servAddr, sizeof(servAddr));
 	 	
-	    // data recv
-	    char MSG[BUF_SIZE]={};
-	    int servAddrSz;
-	    servAddrSz = sizeof(servAddr);
-	    strLen = recvfrom(hSocket, MSG, BUF_SIZE, 0, (SOCKADDR*)&servAddr, &servAddrSz);
-	    //printf("1:%s 2:%s\n",message,MSG);
-	    //if(strLen == -1)ErrorHandling("read() error");
-	    //if(strcmp(message,MSG)==0){
-	    if(strcmp("hellow",MSG)==0){
-			printf("Message from server : %s \n", MSG);
-	    	break;
-		}
- 	
  	}
+ 	sendto(hSocket, "EXITEXIT", strlen("EXITEXIT")+1, 0, (SOCKADDR*)&servAddr, sizeof(servAddr));
+ 	
+ 	fclose(Read);
     closesocket(hSocket);
  
     // lib delete
