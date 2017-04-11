@@ -1,0 +1,5 @@
+﻿  md5.cpp
+c:\users\hansol\documents\visual studio 2017\projects\consoleapplication1\consoleapplication1\md5.cpp(411): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.15063.0\ucrt\stdio.h(1772): note: 'sprintf' 선언을 참조하십시오.
+  ConsoleApplication1.vcxproj -> c:\users\hansol\documents\visual studio 2017\Projects\ConsoleApplication1\Debug\ConsoleApplication1.exe
+  ConsoleApplication1.vcxproj -> c:\users\hansol\documents\visual studio 2017\Projects\ConsoleApplication1\Debug\ConsoleApplication1.pdb (Partial PDB)
