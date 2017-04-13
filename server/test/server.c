@@ -44,26 +44,21 @@ int main(int argc, char *argv[])
     if (bind(servSock, (SOCKADDR*)&servAdr, sizeof(servAdr)) == SOCKET_ERROR)
         ErrorHandling("bind() error");
  	
- 	
+ 	FILE *Write=fopen("output.txt","w");
     while (1)
     {
         clntAdrSz = sizeof(clntAdr);
         strLen = recvfrom(servSock, message, BUF_SIZE, 0, (SOCKADDR*)&clntAdr, &clntAdrSz);
-        if(strlen(message)!=0){
-	        printf("Send Msg : %s   cliSize = %d\n",message,sizeof(clntAdr));
-	        //for(int i=0;i<10000000;i++){}
-	        //sendto(servSock, message, strlen(message)+1, 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
-	        sendto(servSock, "hellow", strlen("hellow")+1, 0, (SOCKADDR*)&clntAdr, sizeof(clntAdr));
-			if(strcmp(message,"exit")==0){
-	        	printf("END!\n");
-	        	break;
-			}
-			
+        if(strcmp(message,"EXITEXIT")==0){
+	        printf("END!\n");
+	        break;
 		}
-        
+		else{
+			fprintf(Write,"%s",message);
+		}
     }
- 
-    closesocket(servSock);
+ 	fclose(Write);
+	closesocket(servSock);
     WSACleanup();
     return 0;
  
