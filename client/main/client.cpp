@@ -55,7 +55,7 @@ int main(int argc, char **argv){
 		return 1;
 	}
 
-	if (SL.Connect(client, SL.MakeAddress(address, port)) == SOCKET_ERROR){
+	if( SL.Connect(client, SL.MakeAddress(address, port)) == SOCKET_ERROR ){
 		perror("FAIL TO CONNECT SOCKET");
 		return 1;
 	}
