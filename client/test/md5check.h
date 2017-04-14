@@ -360,9 +360,9 @@ string md5(const string strMd5)
 	return hex_output;
 }
 
-string FileHash( FILE* fp )
+string FileHash( char* filename )
 {
-    fp = fopen("./test.txt", "r" );
+    FILE *fp = fopen( filename, "rb" ); 
 
     if( fp == NULL )
     {
@@ -379,6 +379,8 @@ string FileHash( FILE* fp )
 	buf[n] = 0;
 	st = md5( st + buf );
     }
+    
+    fclose(fp);
 
     return st;
 }
@@ -389,9 +391,3 @@ bool FileIntegrity( string cliHash, string serHash )
     return false;
 }
 
-int main(int argc, char *argv[])
-{
-	FILE* fp = fopen("./test.txt", "r");
-	cout << (FileHash(fp)) << '\n';
-	return EXIT_SUCCESS;
-}
