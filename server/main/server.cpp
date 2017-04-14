@@ -5,6 +5,7 @@
 using namespace std;
  
 #define MAX_PACKETLEN 512
+#define BUFSIZE 4096
  
 int main(){
 	int port;
@@ -17,39 +18,45 @@ int main(){
 	}
 	cout<< "Success socket create at port " << port <<endl;
 	
-    // Prepare the sockaddr_in structure
+	// Prepare the sockaddr_in structure
 	sockaddr_in socketInfo = SL.MakeAddress(port);
 	int socketBlockSize = sizeof(socketInfo);
 
 	if( SL.Bind(server, socketInfo) == SOCKET_ERROR ){
 		perror("Bind Error");
-        exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	puts("Bind done");
 
-	while( true ){
-		sockaddr_in clientSocketInfo;
-        ZeroMemory( &clientSocketInfo, sizeof(sockaddr_in) ); 
+	sockaddr_in clientSocketInfo;
+	ZeroMemory( &clientSocketInfo, sizeof(sockaddr_in) ); 
+	
+	int rlen = 0;
+	string buf, name;
 
-		string buf;
-        // try to receive some data, this is a blocking call
-        if( SL.Receive(server, buf, 4096, clientSocketInfo) == SOCKET_ERROR ){
-            printf("recvfrom() failed with error code : %d" , WSAGetLastError());
-            exit(EXIT_FAILURE);
-        }
+	rlen = SL.Receive(server, name, 4096, clientSocketInfo);
 
-        // print details of the client/peer and the data received
-        printf("Received packet from %s:%d\n", inet_ntoa(clientSocketInfo.sin_addr), ntohs(clientSocketInfo.sin_port));
-        printf("Data: %s\n" , buf.data());
-
-        // now reply the client with the same data
-        if( SL.Send(server, buf, clientSocketInfo) == SOCKET_ERROR ){
-            printf("sendto() failed with error code : %d" , WSAGetLastError());
-            exit(EXIT_FAILURE);
-        }
+	// print details of the client/peer and the data received
+	printf("Received packet from %s:%d\n", inet_ntoa(clientSocketInfo.sin_addr), ntohs(clientSocketInfo.sin_port));
+	printf("filename: %s\n", name.data());
+	
+	FILE* file=fopen(name.data(),"wb");
+	
+	while( (rlen = SL.Receive(server, buf, 4096, clientSocketInfo)) > 0 ){
+		// print details of the client/peer and the data received
+		printf("fileStream) from %s:%d\n", inet_ntoa(clientSocketInfo.sin_addr), ntohs(clientSocketInfo.sin_port));
+		
+		printf("%s\n", buf.data());
+		fflush(stdout);
+		if( strncmp(buf.data(), "~EXIT~", 6) == 0 ) break;
+		
+		fprintf(file,"%s", buf.data());
 	}
+	
+	fclose(file);
+
 	SL.Close(server);
 
-    return 0; 
+	return 0; 
  
 } 
