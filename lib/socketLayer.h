@@ -49,7 +49,7 @@ public:
 	}
 
 	int Connect(SOCKET &socket, sockaddr_in &address){
-		return connect(socket, (sockaddr*)&address, sizeof(address));
+		return connect(socket, (struct sockaddr*)&address, sizeof(address));
 	}
 
 	int Send(SOCKET &socket, string buffer){
@@ -66,7 +66,7 @@ public:
 			// throw "Receive Error";
 			return -1;
 		}
-		storage.append( buffer.cbegin(), buffer.cend() );
+		storage.assign( buffer.begin(), buffer.end() );
 		return receivedBytes;
 	}
 	int Receive(SOCKET &socket, string &storage, const unsigned int buffer_length, sockaddr_in &from){
@@ -77,7 +77,7 @@ public:
 			// throw "Receive Error";
 			return -1;
 		}
-		storage.append( buffer.cbegin(), buffer.cend() );
+		storage.assign( buffer.begin(), buffer.end() );
 		return receivedBytes;
 	}
 

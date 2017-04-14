@@ -10,9 +10,12 @@ using namespace std;
 int main(int argc, char **argv){
 	int port;
 	char address[MAXLEN];
+	string name;
 	printf("IP: "); cin >> address;
 	printf("PORT: "); cin >> port;
-	printf("ip address : [%s:%d]\n", address, port);
+	printf("File Name: ");cin>>name;
+	printf("ip address : [%s:%d] file name : %s\n", address, port,name.c_str());
+	
 
 	SocketLayer SL;
 	SOCKET client;
@@ -21,27 +24,29 @@ int main(int argc, char **argv){
 		return 1;
 	}
 
-	if( SL.Connect(client, SL.MakeAddress(address, port)) == SOCKET_ERROR ){
+	sockaddr_in addressInfo = SL.MakeAddress(address, port);
+	if( SL.Connect(client, addressInfo) == SOCKET_ERROR ){
 		perror("FAIL TO CONNECT SOCKET");
 		return 1;
 	}
 
-	SL.Send(client, "User Connected!");
 
-	char buffer[MAXLEN]={};
-	printf("> ");
-	while(fgets(buffer, MAXLEN-1, stdin)){
-		if(strncmp(buffer, "quit\n", 5) == 0) break;
-
-		SL.Send(client, buffer);
-
-		string str;
-		if( SL.Receive(client, str) > 0 ){
-			printf("Received Data from Server: %s\n", str.data());
-		}
-		
-		printf("> ");
+	FILE* file = fopen(name.c_str(),"rb");
+	if(file==NULL){
+		perror("File is not exist\n");
+		return 1;
 	}
+	
+	SL.Send(client, name);
+	
+	char buffer[MAXLEN]={};
+	while(fgets(buffer, MAXLEN, file) >0){
+		SL.Send(client, buffer);
+	}
+	SL.Send(client,"~EXIT~");
+	
+	
+	fclose(file);
 
 	SL.Close(client);
 
