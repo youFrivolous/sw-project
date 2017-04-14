@@ -43,10 +43,13 @@ long long sendFileToSocket(ifstream& is, SocketLayer &SL, SOCKET socket){
 
 int main(int argc, char **argv){
 	int port;
-	char address[55];
+	char address[MAXLEN];
+	string name;
 	printf("IP: "); cin >> address;
 	printf("PORT: "); cin >> port;
-	printf("ip address : [%s:%d]\n", address, port);
+	printf("File Name: "); cin>>name;
+	printf("ip address : [%s:%d] file name : %s\n", address, port,name.c_str());
+	
 
 	SocketLayer SL;
 	SOCKET client;
@@ -55,7 +58,8 @@ int main(int argc, char **argv){
 		return 1;
 	}
 
-	if( SL.Connect(client, SL.MakeAddress(address, port)) == SOCKET_ERROR ){
+	sockaddr_in addressInfo = SL.MakeAddress(address, port);
+	if( SL.Connect(client, addressInfo) == SOCKET_ERROR ){
 		perror("FAIL TO CONNECT SOCKET");
 		return 1;
 	}
@@ -89,6 +93,10 @@ int main(int argc, char **argv){
 		}
 		printf("filename> ");
 	}
+	SL.Send(client,"~EXIT~");
+	
+	
+	fclose(file);
 
 	SL.Close(client);
 

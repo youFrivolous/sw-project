@@ -43,13 +43,13 @@ public:
 		sockaddr_in addr;
 		memset((void *)&addr, 0x00, sizeof(addr));
 		addr.sin_family = AF_INET; 
-		addr.sin_addr.s_addr = INADDR_ANY; // ¸ğµç »ç¿ë °¡´ÉÇÑ ÁÖ¼Ò·ÎºÎÅÍ ±â´Ù¸®°Ú´Ù´Â ÀÇ¹Ì
+		addr.sin_addr.s_addr = INADDR_ANY; // ëª¨ë“  ì‚¬ìš© ê°€ëŠ¥í•œ ì£¼ì†Œë¡œë¶€í„° ê¸°ë‹¤ë¦¬ê² ë‹¤ëŠ” ì˜ë¯¸
 		addr.sin_port = htons( port ); 
 		return addr;
 	}
 
 	int Connect(SOCKET &socket, sockaddr_in &address){
-		return connect(socket, (sockaddr*)&address, sizeof(address));
+		return connect(socket, (struct sockaddr*)&address, sizeof(address));
 	}
 
 	int Send(SOCKET &socket, char * buffer, unsigned int buffer_length){
@@ -64,7 +64,7 @@ public:
 		if(receivedBytes == -1){
 			// throw "Receive Error";
 			return -1;
-		}
+    }
 		return receivedBytes;
 	}
 	int Receive(SOCKET &socket, char * buffer, const unsigned int buffer_length, sockaddr_in &from){
@@ -94,8 +94,8 @@ public:
 	}
 
 private:
-    WSADATA wsaData;
+  WSADATA wsaData;
 
-    SOCKADDR_IN serverAddress;
+  SOCKADDR_IN serverAddress;
 	SOCKADDR_IN clientAddress;
 };

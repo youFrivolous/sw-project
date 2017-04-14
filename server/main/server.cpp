@@ -18,13 +18,13 @@ int main(){
 	}
 	cout<< "Success socket create at port " << port <<endl;
 	
-    // Prepare the sockaddr_in structure
+	// Prepare the sockaddr_in structure
 	sockaddr_in socketInfo = SL.MakeAddress(port);
 	int socketBlockSize = sizeof(socketInfo);
 
 	if( SL.Bind(server, socketInfo) == SOCKET_ERROR ){
 		perror("Bind Error");
-        exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	puts("Bind done");
 
@@ -68,6 +68,6 @@ int main(){
 	}
 	SL.Close(server);
 
-    return 0; 
+	return 0; 
  
 } 
