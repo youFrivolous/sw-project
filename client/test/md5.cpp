@@ -360,23 +360,38 @@ string md5(const string strMd5)
 	return hex_output;
 }
 
+string FileHash( FILE* fp )
+{
+    fp = fopen("./test.txt", "r" );
+
+    if( fp == NULL )
+    {
+	printf("can't read file\n");
+	exit(1);
+    }
+
+    char buf[1024]={};
+    int n = 0;
+    string st ="";
+
+    while( (n=fread(buf, 1, 1024, fp) )> 0 )
+    {
+	buf[n] = 0;
+	st = md5( st + buf );
+    }
+
+    return st;
+}
+
+bool FileIntegrity( string cliHash, string serHash )
+{
+    if( cliHash == serHash ) return true;
+    return false;
+}
 
 int main(int argc, char *argv[])
 {
-	int n=0;
-	char buf[1024] = {};
-	FILE* fp = fopen("C:/Users/HANSOL/sw-project/client/test/test.txt", "r");
-
-	if (fp == NULL) {
-		printf("can't read file\n");
-		exit(1);
-	}
-
-	while ((n = fread(buf, 1, 1024, fp)) > 0)
-	{
-		buf[n] = 0;
-		cout << md5(buf) << '\n';
-	}
-
+	FILE* fp = fopen("./test.txt", "r");
+	cout << (FileHash(fp)) << '\n';
 	return EXIT_SUCCESS;
 }
