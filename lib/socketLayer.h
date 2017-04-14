@@ -52,32 +52,28 @@ public:
 		return connect(socket, (sockaddr*)&address, sizeof(address));
 	}
 
-	int Send(SOCKET &socket, string buffer){
-		return send(socket, buffer.data(), buffer.length(), 0);
+	int Send(SOCKET &socket, char * buffer, unsigned int buffer_length){
+		return send(socket, buffer, buffer_length, 0);
 	}
-	int Send(SOCKET &socket, string buffer, sockaddr_in &from){
-		return sendto(socket, buffer.data(), buffer.length(), 0, (struct sockaddr *)&from, sizeof(sockaddr_in));
+	int Send(SOCKET &socket, char * buffer, unsigned int buffer_length, sockaddr_in &from){
+		return sendto(socket, buffer, buffer_length, 0, (struct sockaddr *)&from, sizeof(sockaddr_in));
 	}
 
-	int Receive(SOCKET &socket, string &storage, const unsigned int buffer_length = 4096){
-		vector<char> buffer(buffer_length);
-		int receivedBytes = recv(socket, buffer.data(), buffer.size(), 0);
+	int Receive(SOCKET &socket, char * buffer, const unsigned int buffer_length){
+		int receivedBytes = recv(socket, buffer, buffer_length, 0);
 		if(receivedBytes == -1){
 			// throw "Receive Error";
 			return -1;
 		}
-		storage.append( buffer.cbegin(), buffer.cend() );
 		return receivedBytes;
 	}
-	int Receive(SOCKET &socket, string &storage, const unsigned int buffer_length, sockaddr_in &from){
-		vector<char> buffer(buffer_length);
+	int Receive(SOCKET &socket, char * buffer, const unsigned int buffer_length, sockaddr_in &from){
 		int blockSize = sizeof(sockaddr_in);
-		int receivedBytes = recvfrom(socket, buffer.data(), buffer.size(), 0, (struct sockaddr *)&from, &blockSize);
+		int receivedBytes = recvfrom(socket, buffer, buffer_length, 0, (struct sockaddr *)&from, &blockSize);
 		if(receivedBytes == -1){
 			// throw "Receive Error";
 			return -1;
 		}
-		storage.append( buffer.cbegin(), buffer.cend() );
 		return receivedBytes;
 	}
 
