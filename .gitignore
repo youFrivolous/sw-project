@@ -27,3 +27,12 @@
 *.exe
 *.out
 *.app
+
+## Visual Studio
+Debug/
+*.vcxproj
+*.filters
+*.sln
+*.db
+*.opendb
+.vs/
