@@ -14,6 +14,8 @@ typedef struct sockaddr_in sockaddr_in;
 
 class SocketLayer {
 public:
+	static unsigned int const BUFFER_SIZE = 4096;
+public:
 	SocketLayer(){
 		if(WSAStartup(MAKEWORD(2,2), &wsaData) != NO_ERROR) {
 			fprintf(stderr, "Failed. Error Code : %d", WSAGetLastError());
