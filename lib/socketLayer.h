@@ -43,7 +43,7 @@ public:
 		sockaddr_in addr;
 		memset((void *)&addr, 0x00, sizeof(addr));
 		addr.sin_family = AF_INET; 
-		addr.sin_addr.s_addr = INADDR_ANY; // ¸ğµç »ç¿ë °¡´ÉÇÑ ÁÖ¼Ò·ÎºÎÅÍ ±â´Ù¸®°Ú´Ù´Â ÀÇ¹Ì
+		addr.sin_addr.s_addr = INADDR_ANY; // ëª¨ë“  ì‚¬ìš© ê°€ëŠ¥í•œ ì£¼ì†Œë¡œë¶€í„° ê¸°ë‹¤ë¦¬ê² ë‹¤ëŠ” ì˜ë¯¸
 		addr.sin_port = htons( port ); 
 		return addr;
 	}
@@ -52,32 +52,28 @@ public:
 		return connect(socket, (struct sockaddr*)&address, sizeof(address));
 	}
 
-	int Send(SOCKET &socket, string buffer){
-		return send(socket, buffer.data(), buffer.length(), 0);
+	int Send(SOCKET &socket, char * buffer, unsigned int buffer_length){
+		return send(socket, buffer, buffer_length, 0);
 	}
-	int Send(SOCKET &socket, string buffer, sockaddr_in &from){
-		return sendto(socket, buffer.data(), buffer.length(), 0, (struct sockaddr *)&from, sizeof(sockaddr_in));
+	int Send(SOCKET &socket, char * buffer, unsigned int buffer_length, sockaddr_in &from){
+		return sendto(socket, buffer, buffer_length, 0, (struct sockaddr *)&from, sizeof(sockaddr_in));
 	}
 
-	int Receive(SOCKET &socket, string &storage, const unsigned int buffer_length = 4096){
-		vector<char> buffer(buffer_length);
-		int receivedBytes = recv(socket, buffer.data(), buffer.size(), 0);
+	int Receive(SOCKET &socket, char * buffer, const unsigned int buffer_length){
+		int receivedBytes = recv(socket, buffer, buffer_length, 0);
 		if(receivedBytes == -1){
 			// throw "Receive Error";
 			return -1;
-		}
-		storage.assign( buffer.begin(), buffer.end() );
+    }
 		return receivedBytes;
 	}
-	int Receive(SOCKET &socket, string &storage, const unsigned int buffer_length, sockaddr_in &from){
-		vector<char> buffer(buffer_length);
+	int Receive(SOCKET &socket, char * buffer, const unsigned int buffer_length, sockaddr_in &from){
 		int blockSize = sizeof(sockaddr_in);
-		int receivedBytes = recvfrom(socket, buffer.data(), buffer.size(), 0, (struct sockaddr *)&from, &blockSize);
+		int receivedBytes = recvfrom(socket, buffer, buffer_length, 0, (struct sockaddr *)&from, &blockSize);
 		if(receivedBytes == -1){
 			// throw "Receive Error";
 			return -1;
 		}
-		storage.assign( buffer.begin(), buffer.end() );
 		return receivedBytes;
 	}
 
@@ -98,8 +94,8 @@ public:
 	}
 
 private:
-    WSADATA wsaData;
+  WSADATA wsaData;
 
-    SOCKADDR_IN serverAddress;
+  SOCKADDR_IN serverAddress;
 	SOCKADDR_IN clientAddress;
 };
