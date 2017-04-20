@@ -83,7 +83,7 @@ int main(int argc, char **argv){
 	getchar();
 	fflush(stdin);
 
-	SocketLayer SL;
+	SocketLayerTCP SL;
 	SOCKET client;
 	if( SL.Create(&client) == INVALID_SOCKET ){
 		perror("FAIL TO CREATE SOCKET");
@@ -102,8 +102,8 @@ int main(int argc, char **argv){
 	int retryCount = 0;
 	do {
 		// 재시도가 아니라면 파일명을 입력받아야한다.
-		if( retryCount == 0 || retryCount > 5 ){
-			if(retryCount > 5){
+		if( retryCount == 0 || retryCount > 3 ){
+			if(retryCount > 3){
 				puts("전송을 실패했습니다.");
 			}
 			retryCount = 0;
@@ -118,6 +118,7 @@ int main(int argc, char **argv){
 
 		long long fileSize = 0;
 		string fileHashValue = sendFileToSocket(filename, SL, client, &fileSize);
+		if(fileSize < 1) continue;
 
 		char str[BUFFER_SIZE] = {};
 		if( SL.Receive(client, str, BUFFER_SIZE) > 0 ){
@@ -126,7 +127,7 @@ int main(int argc, char **argv){
 
 			// 서버에 전송된 파일의 해시값을 받는 경우
 			if( strncmp(str, "<file-hash:", 11) == 0 ){
-				printf("MyHashValue: %s and %s\n", str+11, fileHashValue);
+				printf("MyHashValue: %s and %s\n", str+11, fileHashValue.c_str());
 				// 앞의 구분자는 자른 것이 해시값
 				if( HasFileIntegrity(str+11, fileHashValue) == true ){
 					printf("[%s] : original file\n[%s] : received file\n", str+11, fileHashValue.c_str());
