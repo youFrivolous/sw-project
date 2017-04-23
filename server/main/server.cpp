@@ -9,34 +9,59 @@ using namespace std;
  
 int main(){
 	int port;
+	SocketLayer *SL;
 	printf("PORT: "); cin >> port;
+	char suggestTCP[10];
+	printf("Use TCP? (y/n): "); cin >> suggestTCP;
+	bool usingTCP = suggestTCP[0] == 'Y' || suggestTCP[0] == 'y';
+	if (usingTCP) {
+		puts("TCP 프로토콜을 사용합니다.");
+		SL = new SocketLayerTCP();
+	}
+	else {
+		puts("UDP 프로토콜을 사용합니다.");
+		SL = new SocketLayerUDP();
+	}
 
-	SocketLayer SL;
 	SOCKET server;
-	if( SL.Create(&server) == INVALID_SOCKET ){
+	if( SL->Create(&server) == INVALID_SOCKET ){
 		puts("FAIL TO CREATE SOCKET");
 	}
 	cout<< "Success socket create at port " << port <<endl;
 	
 	// Prepare the sockaddr_in structure
-	sockaddr_in socketInfo = SL.MakeAddress(port);
+	sockaddr_in socketInfo = SL->MakeAddress(port);
 	int socketBlockSize = sizeof(socketInfo);
 
-	if( SL.Bind(server, socketInfo) == SOCKET_ERROR ){
+	if( SL->Bind(server, socketInfo) == SOCKET_ERROR ){
 		perror("Bind Error");
 		exit(EXIT_FAILURE);
 	}
 	puts("Bind done");
 
+	if( SL->Listen(server, 1) == SOCKET_ERROR ){
+		perror("Listen Error");
+		exit(EXIT_FAILURE);
+	}
+	puts("Listen.....");
+
+	bool connecting = false;
+	SOCKET client;
 	while( true ){
 		sockaddr_in clientSocketInfo;
-        ZeroMemory( &clientSocketInfo, sizeof(sockaddr_in) ); 
+		if(connecting == false){
+			ZeroMemory( &clientSocketInfo, sizeof(sockaddr_in) );
+			client = SL->StartServer(server, clientSocketInfo);
+			connecting = true;
+		}
 
 		char buf[BUFFER_SIZE] = {};
         // try to receive some data, this is a blocking call
-        if (SL.Receive(server, buf, BUFFER_SIZE, clientSocketInfo) == SOCKET_ERROR){
-            printf("recvfrom() failed with error code : %d" , WSAGetLastError());
-            exit(EXIT_FAILURE);
+		printf("입력 대기중....");
+        if (SL->Receive(client, buf, BUFFER_SIZE) == SOCKET_ERROR){
+			// retry to connection
+			connecting = false;
+			continue;
 		}
 		printf("[Receive fisrt: %s]\n", buf);
 
@@ -50,23 +75,39 @@ int main(){
 			ofstream outFile(filename, ios::out | ios::binary);
 			printf("File received: %s ...\n", filename);
 			int rsize = 0, sendCount = 0;
-			while ((rsize = SL.Receive(server, buf, BUFFER_SIZE, clientSocketInfo)) > 0){
-				if (strncmp(buf, "</send-file>", strlen("</send-file>")) == 0) break;
-				printf("%2d]... receive: %d\n", ++sendCount, rsize);
+			while ((rsize = SL->Receive(client, buf, BUFFER_SIZE)) > 0){
+				if (strncmp(buf, "</send-file>", 12) == 0){
+					endFileReceive = true;
+					break;
+				}
+				time_t now = clock(), elapseSecond = (now - lastTickTime) / CLOCKS_PER_SEC;
+				if(elapseSecond >= 1){
+					double kbps = (lastTickFileSize / 1024LL) / (elapseSecond + (double)1e-9);
+					printf("%s]... kbps: %.3lf KB/s\n", filename, kbps);
+					lastTickTime = now;
+					lastTickFileSize = 0;
+				}
+				lastTickFileSize += rsize;
 				outFile.write(buf, rsize);
 			}
 			outFile.close();
 			printf("end!\n");
 		}
 
-        // now reply the client with the same data
-		strcpy(buf, "I Got Your Request.");
-        if( SL.Send(server, buf, BUFFER_SIZE, clientSocketInfo) == SOCKET_ERROR ){
-            printf("sendto() failed with error code : %d\n" , WSAGetLastError());
-            exit(EXIT_FAILURE);
-        }
+		if(endFileReceive){
+			// now reply the client with the result
+			printf("convert hash to packet form\n");
+			sprintf(buf, "<file-hash:%s", hashResult.c_str());
+			printf("my hash is %s\n", hashResult.c_str());
+			if (SL->Send(client, buf, BUFFER_SIZE) == SOCKET_ERROR) {
+				printf("sendto() failed with error code : %d\n", WSAGetLastError());
+				exit(EXIT_FAILURE);
+			}
+			puts("sended..");
+		}
 	}
-	SL.Close(server);
+	SL->Close(server);
+	SL->Close(client);
 
 	return 0; 
  
