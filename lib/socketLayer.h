@@ -4,7 +4,6 @@
 #include <cstring>
 #include <cstdlib>
 #include <winsock2.h>
-#include <WS2tcpip.h> // TCP/IP
 #include <string>
 #include <vector>
 using namespace std;
@@ -14,8 +13,6 @@ using namespace std;
 typedef struct sockaddr_in sockaddr_in;
 
 class SocketLayer {
-public:
-	static unsigned int const BUFFER_SIZE = 4096;
 public:
 	SocketLayer(){
 		if(WSAStartup(MAKEWORD(2,2), &wsaData) != NO_ERROR) {
@@ -27,11 +24,11 @@ public:
 		WSACleanup();
 	}
 
-	SOCKET Create(SOCKET *source = NULL){ }
+	virtual SOCKET Create(SOCKET *source = NULL) { return *source; }
 
-	sockaddr_in MakeAddress(string destIP, int port){ }
+	virtual sockaddr_in MakeAddress(string destIP, int port) { sockaddr_in s; return s; }
 
-	sockaddr_in MakeAddress(int port){ }
+	virtual sockaddr_in MakeAddress(int port){ sockaddr_in s; return s; }
 
 	int Connect(SOCKET &socket, sockaddr_in &address){
 		return connect(socket, (struct sockaddr*)&address, sizeof(address));
@@ -70,12 +67,17 @@ public:
 		return bind(socket,  (sockaddr*)&socketInfo, sizeof(sockaddr_in));
 	}
 
-	int Listen(SOCKET &socket, int backlog = 5){
+	virtual int Listen(SOCKET &socket, int backlog = 5){
 		return listen(socket, 5);
 	}
 
-	int Accept(SOCKET &socket, sockaddr_in &socketInfo, int *socketLength){
+	virtual int Accept(SOCKET &socket, sockaddr_in &socketInfo, int *socketLength){
 		return accept(socket, (struct sockaddr*)&socketInfo, socketLength );
+	}
+
+	virtual SOCKET StartServer(SOCKET& socket, sockaddr_in& clientSocketInfo) {
+		// nothing to do
+		return socket;
 	}
 
 private:
@@ -116,7 +118,7 @@ class SocketLayerTCP : public SocketLayer {
 public:
 	SOCKET Create(SOCKET *source = NULL){
 		if(source == NULL) source = new SOCKET;
-		*source = socket(AF_INET, SOCK_STREAM, 0);
+		*source = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		return *source;
 	}
 
@@ -138,8 +140,8 @@ public:
 		return addr;
 	}
 
-	bool Listen(SOCKET& serverSocket, int backlog = 1){
-		return listen(serverSocket, backlog) != SOCKET_ERROR;
+	int Listen(SOCKET& serverSocket, int backlog = 1){
+		return listen(serverSocket, backlog);
 	}
 
 	SOCKET Accept(SOCKET& serverSocket, sockaddr_in &socketInfo){
