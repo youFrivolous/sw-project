@@ -11,20 +11,19 @@
 #define BUF_SIZE 100
 using namespace std;
 
-char dir[300], file[300];
+char dir[300];
 
 void ErrorHandling(char* message);
-int FindFile(char *dir,char *file);
+void FindFile(char *dir);
 int main()
 {
 	
-    
     printf("DIR :"); 
 	fflush(stdout);
 	gets(dir);
-    printf("FILE :");
-	fflush(stdout);
-	gets(file);
+    //printf("FILE :");
+	//fflush(stdout);
+	//gets(file);
     //gets(file);
     _finddata_t fd;
     long handle = _findfirst(dir,&fd);
@@ -32,13 +31,7 @@ int main()
     	ErrorHandling((char*)"There were no files.");
 	}
     
-    
-    if(FindFile(dir,file)){
-    	printf("found %s\n",file);
-	}
-	else{
-		printf("not found %s\n",file);
-	}
+    FindFile(dir);
     
 	return 0;
 }
@@ -50,19 +43,31 @@ void ErrorHandling(char* message)
     exit(1);
 }
 
-int FindFile(char *dir,char *file){
+void FindFile(char *dir){
 	DIR *dp;
     struct dirent *dirp;
     
-    
+    int cnt=0;
     
     dp=opendir(dir);
     while(dirp = readdir(dp)){
-    	if(strcmp(dirp->d_name, file)==0){
-    		closedir(dp);
-    		return 1;
+    	if(strcmp(dirp->d_name,".")==0) continue;
+    	if(strcmp(dirp->d_name,"..")==0) continue;
+    	cnt++;
+    	//printf("%s\n",dirp->d_name);
+    	_finddata_t fd;
+    	char dir_new[300]="";
+    	strcpy(dir_new,dir);
+    	strcat(dir_new,(char*)"\\");
+    	strcat(dir_new,dirp->d_name);
+	    long handle = _findfirst(dir_new,&fd);
+	    if(handle!=-1){
+	    	FindFile(dir_new);
 		}
+		
 	}
+	printf("%s : %s\n",dir,(cnt ? (char*)"dir":(char*)"file"));
+	//printf("The Number of files : %d\n",cnt);
+	
 	closedir(dp);
-	return 0;
 }
