@@ -50,7 +50,6 @@ int main() {
 		printf("ÆÄÀÏ¸í> ");
 		fgets(echoString, STRING_LENGTH, stdin);
 		echoString[strlen(echoString) - 1] = 0;
-		puts(echoString);
 
 		/* Send the string, including the null terminator, to the server */
 		long long fileSize = SendFileToServer(usingTCP, echoString, sock, echoServAddr, fromSize);

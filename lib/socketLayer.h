@@ -15,7 +15,7 @@ using namespace std;
 typedef struct sockaddr_in sockaddr_in;
 
 #define STRING_LENGTH 512
-#define BUFFER_SIZE  4096
+#define BUFFER_SIZE  1<<15
 
 void ErrorHandling(char* message) {
 	fprintf(stderr, "%s : Error Code : \n", message, WSAGetLastError());
@@ -29,11 +29,11 @@ int ServerSendToClient(bool isTCP, SOCKET& sock, char *buffer, int bufferSize, s
 	}
 	else {
 		msgSize = sendto(sock, buffer, bufferSize, 0, (sockaddr *)&echoAddr, addrSize);
-		success &= msgSize > 0;
+		success &= msgSize >= 0;
 	}
 
 	if (success == false)
-		ErrorHandling("sendto() sent a different number of bytes than expected");
+		ErrorHandling("ServerSendToClient sent a different number of bytes than expected");
 	return msgSize;
 }
 
@@ -44,11 +44,11 @@ int ServerReceiveFromClient(bool isTCP, SOCKET& sock, char *buffer, int bufferSi
 	}
 	else {
 		msgSize = recvfrom(sock, buffer, bufferSize, 0, (sockaddr *)&echoAddr, addrSize);
-		success &= msgSize > 0;
+		success &= msgSize >= 0;
 	}
 
 	if (success == false)
-		ErrorHandling("sendto() sent a different number of bytes than expected");
+		ErrorHandling("ServerReceiveFromClient sent a different number of bytes than expected");
 	return msgSize;
 }
 
@@ -59,11 +59,11 @@ int ClientSendToServer(bool isTCP, SOCKET& sock, char *buffer, int bufferSize, s
 	}
 	else {
 		msgSize = sendto(sock, buffer, bufferSize, 0, (sockaddr *)&echoAddr, addrSize);
-		success &= msgSize > 0;
+		success &= msgSize >= 0;
 	}
 	
 	if( success == false )
-		ErrorHandling("sendto() sent a different number of bytes than expected");
+		ErrorHandling("ClientSendToServer sent a different number of bytes than expected");
 	return msgSize;
 }
 
@@ -74,11 +74,11 @@ int ClientReceiveFromServer(bool isTCP, SOCKET& sock, char *buffer, int bufferSi
 	}
 	else {
 		msgSize = recvfrom(sock, buffer, bufferSize, 0, (sockaddr *)&echoAddr, addrSize);
-		success &= msgSize > 0;
+		success &= msgSize >= 0;
 	}
 
 	if (success == false)
-		ErrorHandling("sendto() sent a different number of bytes than expected");
+		ErrorHandling("ClientReceiveFromServer receive a different number of bytes than expected");
 	return msgSize;
 }
 
@@ -92,17 +92,33 @@ int MakeMessage(char *buffer, char *message, int bufferSize = -1) {
 bool isBeginToSendFile(char* buffer, char* filename) {
 	char token[] = "<send-file>";
 	int tokenLength = strlen(token);
-	strcpy(filename, buffer + tokenLength);
-	filename[tokenLength] = 0;
-	return strncmp(buffer, token, tokenLength) == 0;
+	if (strncmp(buffer, token, tokenLength) != 0) return false;
+
+	int filenameLength = strlen(buffer + tokenLength);
+	ZeroMemory(filename, filenameLength);
+	strncpy(filename, buffer + tokenLength, filenameLength);
+	filename[filenameLength] = 0;
+	return true;
 }
 bool isEndToSendFile(char* buffer) {
 	return strncmp(buffer, "</send-file>", strlen("</send-file>")) == 0;
 }
+long long getFileSizeFromBuffer(char* buffer) {
+	char token[] = "<file-size>";
+	int tokenLength = strlen(token);
+	if (strncmp(buffer, token, tokenLength) != 0) return -1;
+
+	long long fileSize = 0LL;
+	int filesizeLength = strlen(buffer + tokenLength);
+	for (int i = 0; i < filesizeLength; ++i) {
+		fileSize *= 10LL;
+		fileSize += (buffer[tokenLength + i] - '0');
+	}
+	return fileSize;
+}
 
 // return: fileSize
 long long SendFileToServer(bool isTCP, char *filename, SOCKET& sock, sockaddr_in& echoAddr, int addrSize) {
-	bool success = true;
 	ifstream file(filename, ios::in | ios::binary);
 	if (!file.is_open()) {
 		fprintf(stderr, "File is not exists: \"%s\"\n", filename);
@@ -111,11 +127,16 @@ long long SendFileToServer(bool isTCP, char *filename, SOCKET& sock, sockaddr_in
 
 	char buffer[BUFFER_SIZE] = {};
 	sprintf(buffer, "<send-file>%s", filename);
+	printf("SendFileToServer: %s\n", filename);
 	ClientSendToServer(isTCP, sock, buffer, strlen(buffer), echoAddr, addrSize);
 
 	long long totalFileSize = file.tellg();
 	file.seekg(0, ios::end);
 	totalFileSize = file.tellg() - totalFileSize;
+	sprintf(buffer, "<file-size>%lld", totalFileSize);
+	printf("Estimated File Size: %lld bytes\n", totalFileSize);
+	ClientSendToServer(isTCP, sock, buffer, strlen(buffer), echoAddr, addrSize);
+
 	file.seekg(0, ios::beg);
 	int sendCount = 0;
 	long long calculatedFileSize = 0LL;
@@ -148,25 +169,50 @@ long long SendFileToServer(bool isTCP, char *filename, SOCKET& sock, sockaddr_in
 	int msgLen = MakeMessage(buffer, "</send-file>");
 	ClientSendToServer(isTCP, sock, buffer, msgLen, echoAddr, addrSize);
 
-	if (success == false)
-		ErrorHandling("sendto() sent a different number of bytes than expected");
-
 	return calculatedFileSize;
 }
 
 long long SaveFileToServer(bool isTCP, char *buffer, SOCKET& sock, sockaddr_in& echoAddr, int* addrSize) {
 	char filename[STRING_LENGTH] = {};
 	if (isBeginToSendFile(buffer, filename)) {
-		printf("전송되는 파일명: %s\n", filename);
-		while (isEndToSendFile(buffer) == false) {
-			puts(buffer);
+		// <send-file> 이후 <file-size>
+		ServerReceiveFromClient(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
+		long long filesize = getFileSizeFromBuffer(buffer);
+
+		printf("Processing File with \"%s\"\n", filename);
+		ofstream file(filename, ios::out | ios::binary);
+		int recvBlockSize = 0;
+		time_t lastTickTime = clock();
+		long long lastTickFileSize = 0LL;
+		long long totalFileSize = 0LL;
+		do {
 			ZeroMemory(buffer, BUFFER_SIZE);
 			/* Block until receive message from a client */
-			int recvBlockSize = ServerReceiveFromClient(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
-		}
-		printf("end with [%s]\n", buffer);
-	} else {
-		// this is not file sending packet
-		return -1;
+			recvBlockSize = ServerReceiveFromClient(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
+			if (recvBlockSize <= 0) break;
+			if (isEndToSendFile(buffer)) break;
+			// printf("recvBlockSize = %d\n", recvBlockSize);
+
+			time_t now = clock(), elapseMS = now - lastTickTime;
+			if (elapseMS >= 500) {
+				double kbps = (lastTickFileSize / 1024LL) / (elapseMS + (double)1e-9);
+				double percentage = totalFileSize * 100LL / (filesize + (double)1e-9);
+				printf("%s]... kbps: %.3lf MB/s (%.2lf%%)\n", filename, kbps, percentage);
+				lastTickTime = now;
+				lastTickFileSize = 0;
+			}
+			lastTickFileSize += recvBlockSize;
+			totalFileSize += recvBlockSize;
+			file.write(buffer, recvBlockSize);
+		} while (recvBlockSize > 0);
+		file.close();
+
+		int len = MakeMessage(buffer, "Successed to File Transfer\n");
+		ServerSendToClient(isTCP, sock, buffer, len, echoAddr, *addrSize);
+		puts(buffer);
+		return totalFileSize;
 	}
+
+	// this is not file sending packet
+	return -1;
 }

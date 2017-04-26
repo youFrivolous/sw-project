@@ -56,25 +56,7 @@ int main(){
 
 		printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
 
-		/*
-		char filename[STRING_LENGTH] = {};
-		if (isBeginToSendFile(echoBuffer, filename)) {
-			printf("전송되는 파일명: %s\n", filename);
-		}
-		
-		while (isEndToSendFile(echoBuffer) == false) {
-			puts(echoBuffer);
-			ZeroMemory(echoBuffer, BUFFER_SIZE);
-			if ((recvMsgSize = recvfrom(sock, echoBuffer, BUFFER_SIZE, 0, (sockaddr *)&echoClntAddr, &cliLen)) == SOCKET_ERROR)
-				ErrorHandling("recvfrom() failed");
-		}
-		printf("end with [%s]\n", echoBuffer);
-		*/
 		recvMsgSize = SaveFileToServer(usingTCP, echoBuffer, sock, echoClntAddr, &cliLen);
-
-		/* Send received datagram back to the client */
-		int k = sendto(sock, echoBuffer, recvMsgSize, 0, (sockaddr *)&echoClntAddr, cliLen);
-		printf("= %d\n", k);
 	}
 
 	WSACleanup();  /* Cleanup Winsock */
