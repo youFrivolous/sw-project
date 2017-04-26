@@ -1,114 +1,83 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <ctime>
 #include "socketLayer.h"
+#include "md5check.h"
 
 using namespace std;
- 
-#define BUFFER_SIZE 2048
- 
-int main(){
-	int port;
-	SocketLayer *SL;
+
+bool askInformation(int& port) {
+	char tcpCheckStr[5] = {};
 	printf("PORT: "); cin >> port;
-	char suggestTCP[10];
-	printf("Use TCP? (y/n): "); cin >> suggestTCP;
-	bool usingTCP = suggestTCP[0] == 'Y' || suggestTCP[0] == 'y';
-	if (usingTCP) {
-		puts("TCP 프로토콜을 사용합니다.");
-		SL = new SocketLayerTCP();
-	}
-	else {
-		puts("UDP 프로토콜을 사용합니다.");
-		SL = new SocketLayerUDP();
-	}
+	// printf("using TCP? (y/n):"); cin >> tcpCheckStr;
+	getchar(); fflush(stdin);
+	return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
+}
 
-	SOCKET server;
-	if( SL->Create(&server) == INVALID_SOCKET ){
-		puts("FAIL TO CREATE SOCKET");
-	}
-	cout<< "Success socket create at port " << port <<endl;
-	
-	// Prepare the sockaddr_in structure
-	sockaddr_in socketInfo = SL->MakeAddress(port);
-	int socketBlockSize = sizeof(socketInfo);
+int main(){
+	SOCKET sock;                       /* Socket */
+	sockaddr_in echoServAddr;          /* Local address */
+	sockaddr_in echoClntAddr;          /* Client address */
+	char echoBuffer[BUFFER_SIZE];      /* Buffer for echo string */
+	int cliLen = sizeof(echoClntAddr); /* Length of incoming message */
+	int recvMsgSize;                   /* Size of received message */
+	WSADATA wsaData;                   /* Structure for WinSock setup communication */
+	int PORT;
+	bool usingTCP = askInformation(PORT);
 
-	if( SL->Bind(server, socketInfo) == SOCKET_ERROR ){
-		perror("Bind Error");
-		exit(EXIT_FAILURE);
-	}
+	if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0) /* Load Winsock 2.0 DLL */
+		ErrorHandling("WSAStartup() failed");
+
+	/* Create socket for sending/receiving datagrams */
+	if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+		ErrorHandling("socket() failed");
+	puts("Socket created");
+
+	/* Construct local address structure */
+	memset(&echoServAddr, 0, sizeof(echoServAddr));
+	echoServAddr.sin_family = AF_INET;
+	echoServAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	echoServAddr.sin_port = htons(PORT);
+
+	/* Bind to the local address */
+	if (bind(sock, (sockaddr *) &echoServAddr, sizeof(echoServAddr)) == SOCKET_ERROR)
+		ErrorHandling("bind() failed");
 	puts("Bind done");
 
-	if( SL->Listen(server, 1) == SOCKET_ERROR ){
-		perror("Listen Error");
-		exit(EXIT_FAILURE);
+	while(true){ /* Run forever */
+		printf("Waiting for data...");
+		fflush(stdout);
+
+		ZeroMemory(echoBuffer, BUFFER_SIZE);
+		/* Block until receive message from a client */
+		if ((recvMsgSize = recvfrom(sock, echoBuffer, BUFFER_SIZE, 0, (sockaddr *)&echoClntAddr, &cliLen)) == SOCKET_ERROR)
+			ErrorHandling("recvfrom() failed");
+
+		printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+
+		/*
+		char filename[STRING_LENGTH] = {};
+		if (isBeginToSendFile(echoBuffer, filename)) {
+			printf("전송되는 파일명: %s\n", filename);
+		}
+		
+		while (isEndToSendFile(echoBuffer) == false) {
+			puts(echoBuffer);
+			ZeroMemory(echoBuffer, BUFFER_SIZE);
+			if ((recvMsgSize = recvfrom(sock, echoBuffer, BUFFER_SIZE, 0, (sockaddr *)&echoClntAddr, &cliLen)) == SOCKET_ERROR)
+				ErrorHandling("recvfrom() failed");
+		}
+		printf("end with [%s]\n", echoBuffer);
+		*/
+		recvMsgSize = SaveFileToServer(usingTCP, echoBuffer, sock, echoClntAddr, &cliLen);
+
+		/* Send received datagram back to the client */
+		int k = sendto(sock, echoBuffer, recvMsgSize, 0, (sockaddr *)&echoClntAddr, cliLen);
+		printf("= %d\n", k);
 	}
-	puts("Listen.....");
 
-	bool connecting = false;
-	SOCKET client;
-	while( true ){
-		sockaddr_in clientSocketInfo;
-		if(connecting == false){
-			ZeroMemory( &clientSocketInfo, sizeof(sockaddr_in) );
-			client = SL->StartServer(server, clientSocketInfo);
-			connecting = true;
-		}
-
-		char buf[BUFFER_SIZE] = {};
-        // try to receive some data, this is a blocking call
-		printf("입력 대기중....");
-        if (SL->Receive(client, buf, BUFFER_SIZE) == SOCKET_ERROR){
-			// retry to connection
-			connecting = false;
-			continue;
-		}
-		printf("[Receive fisrt: %s]\n", buf);
-
-		// print details of the client/peer and the data received
-		printf("Received packet from %s:%d\n", inet_ntoa(clientSocketInfo.sin_addr), ntohs(clientSocketInfo.sin_port));
-		if (strncmp(buf, "<send-file>", 11) == 0){
-			char filename[BUFFER_SIZE] = {};
-			strncpy(filename, buf + 12, BUFFER_SIZE - 12);
-			printf("[%s]\n", filename);
-
-			ofstream outFile(filename, ios::out | ios::binary);
-			printf("File received: %s ...\n", filename);
-			int rsize = 0, sendCount = 0;
-			while ((rsize = SL->Receive(client, buf, BUFFER_SIZE)) > 0){
-				if (strncmp(buf, "</send-file>", 12) == 0){
-					endFileReceive = true;
-					break;
-				}
-				time_t now = clock(), elapseSecond = (now - lastTickTime) / CLOCKS_PER_SEC;
-				if(elapseSecond >= 1){
-					double kbps = (lastTickFileSize / 1024LL) / (elapseSecond + (double)1e-9);
-					printf("%s]... kbps: %.3lf KB/s\n", filename, kbps);
-					lastTickTime = now;
-					lastTickFileSize = 0;
-				}
-				lastTickFileSize += rsize;
-				outFile.write(buf, rsize);
-			}
-			outFile.close();
-			printf("end!\n");
-		}
-
-		if(endFileReceive){
-			// now reply the client with the result
-			printf("convert hash to packet form\n");
-			sprintf(buf, "<file-hash:%s", hashResult.c_str());
-			printf("my hash is %s\n", hashResult.c_str());
-			if (SL->Send(client, buf, BUFFER_SIZE) == SOCKET_ERROR) {
-				printf("sendto() failed with error code : %d\n", WSAGetLastError());
-				exit(EXIT_FAILURE);
-			}
-			puts("sended..");
-		}
-	}
-	SL->Close(server);
-	SL->Close(client);
-
-	return 0; 
- 
+	WSACleanup();  /* Cleanup Winsock */
+	closesocket(sock);
+	return 0;
 } 
