@@ -78,7 +78,6 @@ int main(){
 	/* Run forever */
 	while(true){
 		// need to accept if use tcp
-
 		printf("Waiting for data...");
 		fflush(stdout);
 
@@ -86,6 +85,8 @@ int main(){
 		/* Block until receive message from a client */
 		if ((recvMsgSize = ServerReceiveFromClient(usingTCP, sock, echoBuffer, BUFFER_SIZE, clientSock, echoClntAddr, &cliLen)) == SOCKET_ERROR)
 			ErrorHandling("recvfrom() failed");
+
+		if (createServerDirectory(echoBuffer) == BEGIN_DIRECTORY) continue;
 
 		printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
 
@@ -96,4 +97,4 @@ int main(){
 	WSACleanup();  /* Cleanup Winsock */
 	closesocket(sock);
 	return 0;
-} 
+}

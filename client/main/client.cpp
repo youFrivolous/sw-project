@@ -65,12 +65,16 @@ int main() {
 
 	do {
 		fflush(stdout);
-		printf("파일명> ");
+		printf("파일 또는 디렉토리명> ");
 		fgets(echoString, STRING_LENGTH, stdin);
 		echoString[strlen(echoString) - 1] = 0;
 
 		/* Send the string, including the null terminator, to the server */
-		long long fileSize = SendFileToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
+		long long fileSize = 0LL;
+		if (dirExists(echoString))
+			fileSize = SendDirectoryToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
+		else
+			fileSize = SendFileToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
 		if (fileSize <= 0) continue;
 
 		/* Recv a response */
@@ -79,6 +83,7 @@ int main() {
 			ErrorHandling("recvfrom() failed");
 
 		printf("Received: %s\n", echoBuffer);    /* Print the echoed arg */
+
 	} while (true);
 
 	closesocket(sock);
