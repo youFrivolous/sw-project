@@ -3,7 +3,6 @@
 #include <iostream>
 #include <fstream>
 #include <ctime>
-#include "md5check.h"
 #include "socketLayer.h"
 
 using namespace std;
@@ -82,7 +81,7 @@ int main() {
 		if (ClientReceiveFromServer(usingTCP, sock, echoBuffer, BUFFER_SIZE, fromAddr, &fromSize) == SOCKET_ERROR)
 			ErrorHandling("recvfrom() failed");
 
-		printf("Received: %s\n", echoBuffer);    /* Print the echoed arg */
+		printf("Result: %s\n", echoBuffer);    /* Print the echoed arg */
 
 	} while (true);
 

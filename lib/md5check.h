@@ -6,9 +6,9 @@
 #include <iostream> 
 #include <cstdlib> 
 #include <string> 
-#include <cstring> 
-#include <stdio.h>
+#include <cstring>
 #include <cstdio>
+#include <vector>
 
 using namespace std;
 
@@ -340,8 +340,9 @@ md5_finish(md5_state_t *pms, md5_byte_t digest[16])
 		digest[i] = (md5_byte_t)(pms->abcd[i >> 2] >> ((i & 3) << 3));
 }
 
+typedef std::string HASH_STR;
 
-string md5(const string strMd5)
+HASH_STR md5(const HASH_STR strMd5)
 {
 	md5_state_t state;
 	md5_byte_t digest[16];
@@ -360,33 +361,9 @@ string md5(const string strMd5)
 	return hex_output;
 }
 
-string FileHash(char* filename)
+bool compare_hash(const HASH_STR& src, const HASH_STR& dst)
 {
-	FILE *fp = fopen( filename, "rb" ); 
-
-	if( fp == NULL )
-	{
-		fprintf(stderr, "can't read file\n");
-		exit(1);
-	}
-
-	char buf[1024]={};
-	int n = 0;
-	string st("");
-
-	while( (n = fread(buf, 16, 1024, fp)) > 0 )
-	{
-		buf[n] = 0;
-		st = md5( st + buf );
-	}
-	
-	fclose(fp);
-
-	return st;
-}
-
-bool HasFileIntegrity(string cliHash, string serHash)
-{
-	if (cliHash == serHash) return true;
-	return false;
+	int length = src.length();
+	if(length > dst.length()) length = dst.length();
+	return strncmp(src.c_str(), dst.c_str(), length) == 0;
 }

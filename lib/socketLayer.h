@@ -16,6 +16,8 @@
 #define _WIN32_WINNT 0x0500
 #include <Sddl.h>
 
+#include "md5check.h"
+
 using namespace std;
 
 #pragma comment(lib, "ws2_32.lib") // Winsock Library
@@ -28,9 +30,9 @@ typedef struct sockaddr_in sockaddr_in;
 #define BEGIN_FILE      0x0000
 #define END_FILE        0x0001
 #define BEGIN_FILENAME  0x0010
-#define END_FILE        0x0011
+#define END_FILENAME    0x0011
 #define BEGIN_FILESIZE  0x0100
-#define END_FILE        0x0101
+#define END_FILESIZE    0x0101
 #define BEGIN_DIRECTORY 0x0110
 #define END_DIRECTORY   0x0111
 
@@ -137,6 +139,14 @@ long long getFileSizeFromBuffer(char* buffer) {
 		fileSize += (int)(buffer[i] - '0');
 	}
 	return fileSize;
+}
+
+string extractHash(const char* buffer){
+	char token[] = "</send-file>";
+	int tokenLength = strlen(token);
+	if(strncmp(buffer, token, tokenLength) != 0) return "(failed)";
+
+	return buffer + tokenLength;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -318,44 +328,52 @@ long long SendFileToServer(bool isTCP, const char *filename, SOCKET& sock, socka
 	printf("Estimated File Size: %lld bytes\n", realFilesize);
 
 	Sleep(100);
+	
+	// 무결성 검사 시작
+	ZeroMemory(buffer, BUFFER_SIZE);
+	HASH_STR hash;
 
 	file.seekg(0, ios::beg);
-	int sendCount = 0;
 	long long calculatedFileSize = 0LL;
 	long long elapseFileSize = 0LL;
 	time_t lastTickTime = clock();
+	bool isEof = false;
 	do {
-		memset(buffer, 0, sizeof(buffer));
+		streampos prevPos = file.tellg();
+		ZeroMemory(buffer, BUFFER_SIZE);
 		file.read((char *)&buffer, BUFFER_SIZE);
 		int recvBlockSize = 0;
-		if (file.eof()) {
+		isEof = file.eof();
+		// 남은 블럭의 크기가 BUFFER_SIZE보다 큰 경우, 정확한 크기로 파일에 기록한다.
+		if (isEof) {
 			file.clear();
 			file.seekg(0, ios::end);
-			long long realRestSize = file.tellg() - (long long)(sendCount * BUFFER_SIZE);
+			long long realRestSize = file.tellg() - prevPos;
 
 			file.clear();
 			file.seekg(-realRestSize, ios::end);
-			memset(buffer, 0, sizeof(buffer));
+			ZeroMemory(buffer, BUFFER_SIZE);
 			file.read((char *)&buffer, realRestSize);
 			recvBlockSize = ClientSendToServer(isTCP, sock, buffer, realRestSize, echoAddr, addrSize);
-			break;
 		}
 		else {
 			recvBlockSize = ClientSendToServer(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
-			++sendCount;
 		}
+
+		hash = md5(hash + buffer);
 		calculatedFileSize += recvBlockSize;
 		elapseFileSize += recvBlockSize;
 		checkSpeedAndPercentage(filename, &elapseFileSize, calculatedFileSize, &lastTickTime, realFilesize);
 
 		Sleep(5);
-	} while (file.tellg() >= 0);
+	} while(file.tellg() >= 0 && isEof == false);
 	file.close();
 
 	Sleep(100);
-
-	int msgLen = MakeMessage(buffer, "</send-file>");
-	ClientSendToServer(isTCP, sock, buffer, msgLen, echoAddr, addrSize);
+	
+	// 무결성 검사를 위한 해쉬 결과를 함께 전송한다.
+	sprintf(buffer, "</send-file>%s\0", hash.c_str());
+	ClientSendToServer(isTCP, sock, buffer, strlen(buffer), echoAddr, addrSize);
 
 	return calculatedFileSize;
 }
@@ -363,6 +381,7 @@ long long SendFileToServer(bool isTCP, const char *filename, SOCKET& sock, socka
 // 클라이언트가 보낸 첫 신호(<send-file>)를 기준으로 블럭 단위로 서버에서 저장한다.
 long long SaveFileToServer(bool isTCP, char *buffer, SOCKET& sock, SOCKET& clientSock, sockaddr_in& echoAddr, int* addrSize) {
 	char filename[STRING_LENGTH] = {};
+	long long ret = -1LL;
 	if (isBeginToSendFile(buffer, filename)) {
 		// <send-file> 이후 <file-size>
 		ServerReceiveFromClient(isTCP, sock, buffer, BUFFER_SIZE, clientSock, echoAddr, addrSize);
@@ -380,6 +399,9 @@ long long SaveFileToServer(bool isTCP, char *buffer, SOCKET& sock, SOCKET& clien
 			}
 		}
 
+		// 무결성 검사 준비
+		HASH_STR hash;
+
 		printf("\nProcessing File with \"%s\" with (Estimated: %lld bytes)\n", filename, realFilesize);
 		ofstream file(filename, ios::out | ios::binary);
 		int recvBlockSize = 0;
@@ -394,6 +416,7 @@ long long SaveFileToServer(bool isTCP, char *buffer, SOCKET& sock, SOCKET& clien
 			if (recvBlockSize <= 0) break;
 			if (isEndToSendFile(buffer)) break;
 
+			hash = md5(hash + buffer);
 			calculatedFileSize += recvBlockSize;
 			elapseFileSize += recvBlockSize;
 			checkSpeedAndPercentage(filename, &elapseFileSize, calculatedFileSize, &lastTickTime, realFilesize);
@@ -401,15 +424,22 @@ long long SaveFileToServer(bool isTCP, char *buffer, SOCKET& sock, SOCKET& clien
 		} while (recvBlockSize > 0);
 		file.close();
 
-		// 기다리고 있을 클라이언트에게 (아무 메시지나 가능하지만) 종료 메시지를 보냄
-		int len = MakeMessage(buffer, "Successed to File Transfer\n");
-		ServerSendToClient(isTCP, sock, buffer, len, clientSock, echoAddr, *addrSize);
+		string clientHash = extractHash(buffer);
 
-		return calculatedFileSize;
+		// 무결성 검사 종료 및 출력
+		bool correctHash = compare_hash(clientHash, hash);
+		printf("Compare Data Integrity..\n");
+		printf("client: [%s]\nserver: [%s] .... %s\n", clientHash.c_str(), hash.c_str(), correctHash ? "CORRECT" : "FAIL");
+
+		// 기다리고 있을 클라이언트에게 (아무 메시지나 가능하지만) 종료 메시지를 보냄
+		ZeroMemory(buffer, sizeof(buffer));
+		sprintf(buffer, "%s to File Transfer: \"%s\"\n", correctHash ? "Successed" : "Failed", filename);
+		int recvSize = ServerSendToClient(isTCP, sock, buffer, strlen(buffer), clientSock, echoAddr, *addrSize);
+
+		ret = calculatedFileSize;
 	}
 
-	// this is not file sending packet
-	return -1;
+	return ret;
 }
 
 long long SendDirectoryToServer(bool isTCP, char *pathname, SOCKET& sock, sockaddr_in& echoAddr, int addrSize) {
