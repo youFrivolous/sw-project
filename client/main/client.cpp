@@ -10,7 +10,8 @@ using namespace std;
 bool askInformation(char *ip, int& port) {
 	// char tcpCheckStr[5] = {};
 	printf("IP: "); cin >> ip;
-	printf("PORT: "); cin >> port;
+	// printf("PORT: "); cin >> port;
+	port = PORT_NUMBER;
 	// printf("using TCP? (y/n):"); cin >> tcpCheckStr;
 	getchar(); fflush(stdin);
 	// return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
@@ -43,14 +44,14 @@ int main() {
 		fgets(echoString, STRING_LENGTH, stdin);
 		echoString[strlen(echoString) - 1] = 0;
 
-		ClientRequestSwitchProtocol(&usingTCP, sock, echoServAddr, PORT, servIP);
-
 		/* Send the string, including the null terminator, to the server */
 		long long fileSize = 0LL;
 		if (dirExists(echoString))
 			fileSize = SendDirectoryToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
-		else
+		else {
 			fileSize = SendFileToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
+			continue;
+		}
 		if (fileSize <= 0) continue;
 
 		/* Recv a response */
