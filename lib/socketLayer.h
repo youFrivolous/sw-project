@@ -480,3 +480,111 @@ long long SendDirectoryToServer(bool isTCP, char *pathname, SOCKET& sock, sockad
 
 	return totalFilesSize;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// 소켓 생성에 대한 함수들의 정의
+// 프로토콜 변경에 대처하기 위해 공통된 인터페이스를 가진다.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 소켓을 생성하는 함수 (서버-사이드)
+void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT) {
+	if (isTCP) {
+		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
+			ErrorHandling("socket() failed");
+		puts("Socket created");
+
+		address.sin_family = AF_INET;
+		address.sin_port = htons(PORT);
+		address.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
+
+		if (bind(sock, (sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
+			ErrorHandling("Bind Error\n");
+		puts("Bind done");
+
+		if (listen(sock, 5) == SOCKET_ERROR)
+			ErrorHandling("listen Error\n");
+		puts("Listen done");
+	}
+	else {
+		/* Create socket for sending/receiving datagrams */
+		if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
+			ErrorHandling("socket() failed");
+		puts("Socket created");
+
+		/* Construct local address structure */
+		memset(&address, 0, sizeof(address));
+		address.sin_family = AF_INET;
+		address.sin_addr.s_addr = htonl(INADDR_ANY);
+		address.sin_port = htons(PORT);
+
+		/* Bind to the local address */
+		if (bind(sock, (sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
+			ErrorHandling("bind() failed");
+		puts("Bind done");
+	}
+}
+
+// 소켓을 생성하는 함수 (클라이언트-사이드)
+void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT, char *servIP) {
+	if (isTCP) {
+		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
+			ErrorHandling("socket() failed");
+
+		memset(&address, 0, sizeof(address));
+		address.sin_family = AF_INET;
+		address.sin_addr.s_addr = inet_addr(servIP);
+		address.sin_port = htons(PORT);
+
+		if (connect(sock, (sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
+			ErrorHandling("connect failed");
+	}
+	else {
+		/* Create a best-effort datagram socket using UDP */
+		if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
+			ErrorHandling("socket() failed");
+
+		/* Construct the server address structure */
+		memset(&address, 0, sizeof(address));         /* Zero out structure */
+		address.sin_family = AF_INET;                 /* Internet address family */
+		address.sin_addr.S_un.S_addr = inet_addr(servIP);  /* Server IP address */
+		address.sin_port = htons(PORT);               /* Server port */
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// 프로토콜 변경에 대한 함수들
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// 클라이언트의 프로토콜을 변경한다.
+// 변경하기 전, UDP로 연결중일 서버에게도 변경을 요청한다.
+// 서버가 변경된 이후에 다시 클라이언트가 변경된 프로토콜로 접속을 시도한다.
+void ClientRequestSwitchProtocol(bool* isTCP, SOCKET& sock, sockaddr_in& address, int PORT, char *servIP) {
+	printf("Request for switching Protocol: ");
+	puts(*isTCP ? "tcp -> udp" : "udp -> tcp");
+
+	// 기존에 연결된 방식으로 변경을 요청한다.
+	char buffer[BUFFER_SIZE] = "<request-switch-protocol>";
+	ClientSendToServer(*isTCP, sock, buffer, sizeof(buffer), address, sizeof(address));
+
+	// 변경을 요청한 후, 클라이언트가 먼저 변경한다.
+	closesocket(sock);
+	*isTCP = !(*isTCP);
+	Sleep(1000); // 서버가 변경되기를 잠시 기다려보자.
+
+	// 변경된 프로토콜로 연결 시도
+	puts("Try to reconnect with switched protocol..");
+	setUpSocket(*isTCP, sock, address, PORT, servIP);
+	printf("Complete to switch protocol \"%s\"\n", *isTCP ? "tcp" : "udp" );
+}
+
+bool isRequestForSwitchProtocol(char *buffer, int bufferSize) {
+	char token[] = "<request-switch-protocol>";
+	int len = strlen(token);
+	return (strncmp(buffer, token, len) == 0);
+}
+
+void ServerResponeSwitchProtocol(bool* isTCP, SOCKET& sock, sockaddr_in& address, int PORT) {
+	closesocket(sock);
+	*isTCP = !(*isTCP);
+	setUpSocket(*isTCP, sock, address, PORT);
+}

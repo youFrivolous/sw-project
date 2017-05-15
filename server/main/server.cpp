@@ -7,48 +7,12 @@
 using namespace std;
 
 bool askInformation(int& port) {
-	char tcpCheckStr[5] = {};
+	// char tcpCheckStr[5] = {};
 	printf("PORT: "); cin >> port;
-	printf("using TCP? (y/n):"); cin >> tcpCheckStr;
+	// printf("using TCP? (y/n):"); cin >> tcpCheckStr;
 	getchar(); fflush(stdin);
-	return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
-}
-
-void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT) {
-	if (isTCP) {
-		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
-			ErrorHandling("socket() failed");
-		puts("Socket created");
-
-		address.sin_family = AF_INET;
-		address.sin_port = htons(PORT);
-		address.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
-
-		if (bind(sock, (sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
-			ErrorHandling("Bind Error\n");
-		puts("Bind done");
-
-		if (listen(sock, 5) == SOCKET_ERROR)
-			ErrorHandling("listen Error\n");
-		puts("Listen done");
-	}
-	else {
-		/* Create socket for sending/receiving datagrams */
-		if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
-			ErrorHandling("socket() failed");
-		puts("Socket created");
-
-		/* Construct local address structure */
-		memset(&address, 0, sizeof(address));
-		address.sin_family = AF_INET;
-		address.sin_addr.s_addr = htonl(INADDR_ANY);
-		address.sin_port = htons(PORT);
-
-		/* Bind to the local address */
-		if (bind(sock, (sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
-			ErrorHandling("bind() failed");
-		puts("Bind done");
-	}
+	// return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
+	return false;
 }
 
 int main(){
@@ -84,6 +48,15 @@ int main(){
 		/* Block until receive message from a client */
 		if ((recvMsgSize = ServerReceiveFromClient(usingTCP, sock, echoBuffer, BUFFER_SIZE, clientSock, echoClntAddr, &cliLen)) == SOCKET_ERROR)
 			ErrorHandling("recvfrom() failed");
+
+		if (isRequestForSwitchProtocol(echoBuffer, recvMsgSize)) {
+			ServerResponeSwitchProtocol(&usingTCP, sock, echoServAddr, PORT);
+			if (usingTCP) {
+				ZeroMemory(&echoClntAddr, sizeof(echoClntAddr));
+				if ((clientSock = accept(sock, (sockaddr *)&echoClntAddr, &cliLen)) == INVALID_SOCKET)
+					ErrorHandling("Accept failed");
+			}
+		}
 
 		if (createServerDirectory(echoBuffer) == BEGIN_DIRECTORY) continue;
 
