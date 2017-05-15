@@ -8,38 +8,13 @@
 using namespace std;
 
 bool askInformation(char *ip, int& port) {
-	char tcpCheckStr[5] = {};
+	// char tcpCheckStr[5] = {};
 	printf("IP: "); cin >> ip;
 	printf("PORT: "); cin >> port;
-	printf("using TCP? (y/n):"); cin >> tcpCheckStr;
+	// printf("using TCP? (y/n):"); cin >> tcpCheckStr;
 	getchar(); fflush(stdin);
-	return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
-}
-
-void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, char *servIP, int PORT) {
-	if (isTCP) {
-		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
-			ErrorHandling("socket() failed");
-
-		memset(&address, 0, sizeof(address));
-		address.sin_family = AF_INET;
-		address.sin_addr.s_addr = inet_addr(servIP);
-		address.sin_port = htons(PORT);
-
-		if (connect(sock, (sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
-			ErrorHandling("connect failed");
-	}
-	else {
-		/* Create a best-effort datagram socket using UDP */
-		if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
-			ErrorHandling("socket() failed");
-
-		/* Construct the server address structure */
-		memset(&address, 0, sizeof(address));    /* Zero out structure */
-		address.sin_family = AF_INET;                 /* Internet address family */
-		address.sin_addr.S_un.S_addr = inet_addr(servIP);  /* Server IP address */
-		address.sin_port = htons(PORT);               /* Server port */
-	}
+	// return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
+	return false;
 }
 
 int main() {
@@ -60,13 +35,15 @@ int main() {
 		ErrorHandling("WSAStartup() failed");
 	}
 
-	setUpSocket(usingTCP, sock, echoServAddr, servIP, PORT);
+	setUpSocket(usingTCP, sock, echoServAddr, PORT, servIP);
 
 	do {
 		fflush(stdout);
-		printf("파일 또는 디렉토리명> ");
+		printf("File or Directory Name> ");
 		fgets(echoString, STRING_LENGTH, stdin);
 		echoString[strlen(echoString) - 1] = 0;
+
+		ClientRequestSwitchProtocol(&usingTCP, sock, echoServAddr, PORT, servIP);
 
 		/* Send the string, including the null terminator, to the server */
 		long long fileSize = 0LL;
