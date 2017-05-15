@@ -8,9 +8,10 @@ using namespace std;
 
 bool askInformation(int& port) {
 	// char tcpCheckStr[5] = {};
-	printf("PORT: "); cin >> port;
+	// printf("PORT: "); cin >> port;
+	port = PORT_NUMBER;
 	// printf("using TCP? (y/n):"); cin >> tcpCheckStr;
-	getchar(); fflush(stdin);
+	// getchar(); fflush(stdin);
 	// return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
 	return false;
 }
@@ -49,6 +50,8 @@ int main(){
 		if ((recvMsgSize = ServerReceiveFromClient(usingTCP, sock, echoBuffer, BUFFER_SIZE, clientSock, echoClntAddr, &cliLen)) == SOCKET_ERROR)
 			ErrorHandling("recvfrom() failed");
 
+		if (createServerDirectory(echoBuffer) == BEGIN_DIRECTORY) continue;
+
 		if (isRequestForSwitchProtocol(echoBuffer, recvMsgSize)) {
 			ServerResponeSwitchProtocol(&usingTCP, sock, echoServAddr, PORT);
 			if (usingTCP) {
@@ -57,8 +60,6 @@ int main(){
 					ErrorHandling("Accept failed");
 			}
 		}
-
-		if (createServerDirectory(echoBuffer) == BEGIN_DIRECTORY) continue;
 
 		printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
 
