@@ -152,6 +152,18 @@ string extractHash(const char* buffer){
 	return buffer + tokenLength;
 }
 
+long long getResendFileSize(const char* buffer, int bufferSize) {
+	char token[] = "<retry-from>";
+	int tokenLength = strlen(token);
+	long long result = 0LL;
+	if (strncmp(buffer, token, tokenLength) == 0) {
+		for (int i = tokenLength; buffer[i]; ++i) {
+			if (buffer[i] < '0' || buffer[i] > '9') break;
+			result = result * 10LL + (buffer[i] - '0');
+		}
+	}
+	return result;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // 소켓 생성에 대한 함수들의 정의
@@ -448,14 +460,19 @@ long long SendFileToServer(bool& isTCP, const char *filename, SOCKET& sock, sock
 	Sleep(100);
 
 	char buffer[BUFFER_SIZE] = {};
-	sprintf(buffer, "<send-file>%s", filename);
-	ClientSendToServer(isTCP, sock, buffer, strlen(buffer), echoAddr, addrSize);
+	sprintf(buffer, "<send-file>%s%c", filename, 0);
+	ClientSendToServer(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
 
 	Sleep(100);
 
 	ZeroMemory(buffer, BUFFER_SIZE);
-	sprintf(buffer, "<file-size>%lld...", realFilesize);
-	ClientSendToServer(isTCP, sock, buffer, strlen(buffer), echoAddr, addrSize);
+	sprintf(buffer, "<file-size>%lld...%c", realFilesize, 0);
+	ClientSendToServer(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
+
+	Sleep(100);
+
+	int recvMsgSize = ClientReceiveFromServer(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, &addrSize);
+	long long resendSize = getResendFileSize(buffer, recvMsgSize);
 
 	Sleep(100);
 	
@@ -464,7 +481,11 @@ long long SendFileToServer(bool& isTCP, const char *filename, SOCKET& sock, sock
 	HASH_STR hash;
 
 	file.seekg(0, ios::beg);
-	long long calculatedFileSize = 0LL;
+	streampos zeroOffset = file.tellg();
+	file.seekg(resendSize, ios::beg);
+	streampos startOffset = file.tellg();
+
+	long long calculatedFileSize = startOffset - zeroOffset;
 	long long elapseFileSize = 0LL;
 	time_t lastTickTime = clock();
 	bool isEof = false;
@@ -537,12 +558,35 @@ long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clie
 		// 무결성 검사 준비
 		HASH_STR hash;
 
+		long long calculatedFileSize = 0LL;
+
+		// 파일이 이미 있다면 이어하기를 시도한다.
+		ifstream fileChk(filename, ios::in | ios::binary);
+		if (fileChk.is_open()) {
+			fileChk.seekg(0, ios::beg);
+			streampos zeroOffset = fileChk.tellg();
+			fileChk.seekg(0, ios::end);
+			calculatedFileSize = fileChk.tellg() - zeroOffset;
+			printf("File already exists... try re-receive from - %lld byte offset\n", calculatedFileSize);
+			fileChk.close();
+		}
+
+		// <send-file> 이후 <retry-from>를 클라이언트에게 보냄
+		ZeroMemory(buffer, BUFFER_SIZE);
+		sprintf(buffer, "<retry-from>%lld", calculatedFileSize);
+		int recvSize = ServerSendToClient(isTCP, sock, buffer, BUFFER_SIZE, clientSock, echoAddr, *addrSize);
+
 		printf("\nProcessing File with \"%s\" with (Estimated: %lld bytes)\n", filename, realFilesize);
-		ofstream file(filename, ios::out | ios::binary);
+		ofstream file;
+		if (calculatedFileSize > 0LL) {
+			file.open(filename, ios::out | ios::app | ios::binary);
+		}
+		else {
+			file.open(filename, ios::out | ios::binary);
+		}
 		int recvBlockSize = 0;
 		time_t lastTickTime = clock();
 		long long elapseFileSize = 0LL;
-		long long calculatedFileSize = 0LL;
 		do {
 			ZeroMemory(buffer, BUFFER_SIZE);
 			/* Block until receive message from a client */
@@ -569,7 +613,7 @@ long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clie
 		// 기다리고 있을 클라이언트에게 (아무 메시지나 가능하지만) 종료 메시지를 보냄
 		ZeroMemory(buffer, sizeof(buffer));
 		sprintf(buffer, "%s to File Transfer: \"%s\"\n", correctHash ? "Successed" : "Failed", filename);
-		int recvSize = ServerSendToClient(isTCP, sock, buffer, strlen(buffer), clientSock, echoAddr, *addrSize);
+		ServerSendToClient(isTCP, sock, buffer, strlen(buffer), clientSock, echoAddr, *addrSize);
 
 		ret = calculatedFileSize;
 	}
