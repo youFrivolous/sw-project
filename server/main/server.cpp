@@ -7,6 +7,7 @@
 using namespace std;
 
 bool askInformation(int& port) {
+	// (warning) PORT_NUMBER is on socketLayer with global define
 	port = PORT_NUMBER;
 	return false;
 }
