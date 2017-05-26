@@ -7,12 +7,7 @@
 using namespace std;
 
 bool askInformation(int& port) {
-	// char tcpCheckStr[5] = {};
-	// printf("PORT: "); cin >> port;
 	port = PORT_NUMBER;
-	// printf("using TCP? (y/n):"); cin >> tcpCheckStr;
-	// getchar(); fflush(stdin);
-	// return tcpCheckStr[0] == 'y' || tcpCheckStr[0] == 'Y';
 	return false;
 }
 
