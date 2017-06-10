@@ -12,7 +12,7 @@ bool askInformation(int& port) {
 	return false;
 }
 
-int main(){
+int main() {
 	SOCKET sock;                       /* Socket */
 	sockaddr_in echoServAddr;          /* Local address */
 	sockaddr_in echoClntAddr;          /* Client address */
@@ -36,11 +36,11 @@ int main(){
 	}
 
 	/* Run forever */
-	while(true){
+	while (true) {
 		// need to accept if use tcp
 		printf("Waiting for data...");
-		fflush(stdout);
 
+		fflush(stdout);
 		ZeroMemory(echoBuffer, BUFFER_SIZE);
 		/* Block until receive message from a client */
 		if ((recvMsgSize = ServerReceiveFromClient(usingTCP, sock, echoBuffer, BUFFER_SIZE, clientSock, echoClntAddr, &cliLen)) == SOCKET_ERROR)

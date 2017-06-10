@@ -37,11 +37,13 @@ int main() {
 	}
 
 	setUpSocket(usingTCP, sock, echoServAddr, PORT, servIP);
+	AddrIP(servIP);
 
 	do {
 		fflush(stdout);
 		printf("File or Directory Name> ");
 		fgets(echoString, STRING_LENGTH, stdin);
+
 		echoString[strlen(echoString) - 1] = 0;
 
 		/* Send the string, including the null terminator, to the server */
@@ -49,7 +51,7 @@ int main() {
 		if (dirExists(echoString))
 			fileSize = SendDirectoryToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
 		else {
-			fileSize = SendFileToServer(usingTCP, echoString, sock, echoServAddr, fromSize);
+			fileSize = SendFileToServer(usingTCP, NULL, echoString, sock, echoServAddr, fromSize);
 			continue;
 		}
 		if (fileSize <= 0) continue;
