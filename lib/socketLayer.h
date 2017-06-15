@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <cstdio>
 #include <cstring>
@@ -17,7 +17,7 @@
 #include <Sddl.h>
 
 #include "md5check.h"
-
+#include "mysqlConnect.h"
 using namespace std;
 
 #pragma comment(lib, "ws2_32.lib") // Winsock Library
@@ -26,6 +26,7 @@ typedef struct sockaddr_in sockaddr_in;
 
 #define STRING_LENGTH      512
 #define BUFFER_SIZE        1<<16-1
+#define BUFFER_SIZE        1<<12-1
 #define UDP_FILESIZE_LIMIT 2*BUFFER_SIZE /* KB */
 
 #define BEGIN_FILE      0x0000
@@ -41,7 +42,7 @@ typedef struct sockaddr_in sockaddr_in;
 
 string ip = "";
 
-//ipÁÖ¼Ò ¾ò¾î¿À±â
+//ipì£¼ì†Œ ì–»ì–´ì˜¤ê¸°
 void AddrIP(string IP) {
 	ip = IP;
 }
@@ -173,11 +174,11 @@ long long getResendFileSize(const char* buffer, int bufferSize) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// ¼ÒÄÏ »ı¼º¿¡ ´ëÇÑ ÇÔ¼öµéÀÇ Á¤ÀÇ
-// ÇÁ·ÎÅäÄİ º¯°æ¿¡ ´ëÃ³ÇÏ±â À§ÇØ °øÅëµÈ ÀÎÅÍÆäÀÌ½º¸¦ °¡Áø´Ù.
+// ì†Œì¼“ ìƒì„±ì— ëŒ€í•œ í•¨ìˆ˜ë“¤ì˜ ì •ì˜
+// í”„ë¡œí† ì½œ ë³€ê²½ì— ëŒ€ì²˜í•˜ê¸° ìœ„í•´ ê³µí†µëœ ì¸í„°í˜ì´ìŠ¤ë¥¼ ê°€ì§„ë‹¤.
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ¼ÒÄÏÀ» »ı¼ºÇÏ´Â ÇÔ¼ö (¼­¹ö-»çÀÌµå)
+// ì†Œì¼“ì„ ìƒì„±í•˜ëŠ” í•¨ìˆ˜ (ì„œë²„-ì‚¬ì´ë“œ)
 void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT) {
 	if (isTCP) {
 		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
@@ -215,7 +216,7 @@ void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT) {
 	}
 }
 
-// ¼ÒÄÏÀ» »ı¼ºÇÏ´Â ÇÔ¼ö (Å¬¶óÀÌ¾ğÆ®-»çÀÌµå)
+// ì†Œì¼“ì„ ìƒì„±í•˜ëŠ” í•¨ìˆ˜ (í´ë¼ì´ì–¸íŠ¸-ì‚¬ì´ë“œ)
 void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT, char *servIP) {
 	if (isTCP) {
 		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
@@ -243,26 +244,26 @@ void setUpSocket(bool isTCP, SOCKET& sock, sockaddr_in& address, int PORT, char 
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// ÇÁ·ÎÅäÄİ º¯°æ¿¡ ´ëÇÑ ÇÔ¼öµé
+// í”„ë¡œí† ì½œ ë³€ê²½ì— ëŒ€í•œ í•¨ìˆ˜ë“¤
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Å¬¶óÀÌ¾ğÆ®ÀÇ ÇÁ·ÎÅäÄİÀ» º¯°æÇÑ´Ù.
-// º¯°æÇÏ±â Àü, UDP·Î ¿¬°áÁßÀÏ ¼­¹ö¿¡°Ôµµ º¯°æÀ» ¿äÃ»ÇÑ´Ù.
-// ¼­¹ö°¡ º¯°æµÈ ÀÌÈÄ¿¡ ´Ù½Ã Å¬¶óÀÌ¾ğÆ®°¡ º¯°æµÈ ÇÁ·ÎÅäÄİ·Î Á¢¼ÓÀ» ½ÃµµÇÑ´Ù.
+// í´ë¼ì´ì–¸íŠ¸ì˜ í”„ë¡œí† ì½œì„ ë³€ê²½í•œë‹¤.
+// ë³€ê²½í•˜ê¸° ì „, UDPë¡œ ì—°ê²°ì¤‘ì¼ ì„œë²„ì—ê²Œë„ ë³€ê²½ì„ ìš”ì²­í•œë‹¤.
+// ì„œë²„ê°€ ë³€ê²½ëœ ì´í›„ì— ë‹¤ì‹œ í´ë¼ì´ì–¸íŠ¸ê°€ ë³€ê²½ëœ í”„ë¡œí† ì½œë¡œ ì ‘ì†ì„ ì‹œë„í•œë‹¤.
 void ClientRequestSwitchProtocol(bool* isTCP, SOCKET& sock, sockaddr_in& address, int PORT, char *servIP) {
 	printf("Request for switching Protocol: %s ... ", *isTCP ? "tcp -> udp" : "udp -> tcp");
 
-	// ±âÁ¸¿¡ ¿¬°áµÈ ¹æ½ÄÀ¸·Î º¯°æÀ» ¿äÃ»ÇÑ´Ù.
+	// ê¸°ì¡´ì— ì—°ê²°ëœ ë°©ì‹ìœ¼ë¡œ ë³€ê²½ì„ ìš”ì²­í•œë‹¤.
 	char buffer[BUFFER_SIZE] = "<request-switch-protocol>";
 	ClientSendToServer(*isTCP, sock, buffer, sizeof(buffer), address, sizeof(address));
 
-	// º¯°æÀ» ¿äÃ»ÇÑ ÈÄ, Å¬¶óÀÌ¾ğÆ®°¡ ¸ÕÀú º¯°æÇÑ´Ù.
+	// ë³€ê²½ì„ ìš”ì²­í•œ í›„, í´ë¼ì´ì–¸íŠ¸ê°€ ë¨¼ì € ë³€ê²½í•œë‹¤.
 	closesocket(sock);
 	*isTCP = !(*isTCP);
-	Sleep(1000); // ¼­¹ö°¡ º¯°æµÇ±â¸¦ Àá½Ã ±â´Ù·Áº¸ÀÚ.
+	Sleep(1000); // ì„œë²„ê°€ ë³€ê²½ë˜ê¸°ë¥¼ ì ì‹œ ê¸°ë‹¤ë ¤ë³´ì.
 
-				 // º¯°æµÈ ÇÁ·ÎÅäÄİ·Î ¿¬°á ½Ãµµ
-				 // puts("Try to reconnect with switched protocol..");
+	// ë³€ê²½ëœ í”„ë¡œí† ì½œë¡œ ì—°ê²° ì‹œë„
+	// puts("Try to reconnect with switched protocol..");
 	setUpSocket(*isTCP, sock, address, PORT, servIP);
 	printf("Complete!(%s)\n", *isTCP ? "tcp" : "udp");
 }
@@ -378,7 +379,7 @@ bool getDirectoryList(std::string dir, vector<FilePath> *paths)
 }
 
 string getRealPath(const char* filePath) {
-	// ÀÔ·ÂÀ» »ó´ë°æ·Î·Î °¡Á¤ÇÏ°í, Àı´ë°æ·Î·Î º¯°æ
+	// ì…ë ¥ì„ ìƒëŒ€ê²½ë¡œë¡œ ê°€ì •í•˜ê³ , ì ˆëŒ€ê²½ë¡œë¡œ ë³€ê²½
 	char originalDirectory[_MAX_PATH];
 	_getcwd(originalDirectory, _MAX_PATH);
 	string currentDir(originalDirectory);
@@ -394,13 +395,13 @@ int createServerDirectory(char *buffer) {
 	if (strncmp(buffer, token, tokenLength) != 0) return -1;
 	printf("\nRequest Creating Directory: \"%s\"\n", buffer + tokenLength);
 
-	// ¹öÆÛ¿¡ ÆÄÀÏÀÌ ¿©·¯°³ÀÇ Send°¡ ´©ÀûµÇ¾î ÀÖÀ» ¼ö ÀÖ´Ù.
-	// ÀÚ¼¼ÇÑ ÀÌÀ¯´Â http://egloos.zum.com/depiness/v/911099
-	// µû¶ó¼­ Áß°£¿¡ ³¢¾îÀÖ´Â ±¸ºĞÀÚ¸¦ ÅëÇØ ÀÚ¸¥´Ù.
+	// ë²„í¼ì— íŒŒì¼ì´ ì—¬ëŸ¬ê°œì˜ Sendê°€ ëˆ„ì ë˜ì–´ ìˆì„ ìˆ˜ ìˆë‹¤.
+	// ìì„¸í•œ ì´ìœ ëŠ” http://egloos.zum.com/depiness/v/911099
+	// ë”°ë¼ì„œ ì¤‘ê°„ì— ë¼ì–´ìˆëŠ” êµ¬ë¶„ìë¥¼ í†µí•´ ìë¥¸ë‹¤.
 	string bufferedStr(buffer + tokenLength);
 	int lastTokenIndex = 0, bufferLength = bufferedStr.length();
 	for (int i = 0; i <= bufferLength; ++i) {
-		// <create-file> ÀÇ ¾Õ¸Ó¸®°¡ ³ª¿Â°ÍÀ¸·Î ÃßÃøÇÑ´Ù.
+		// <create-file> ì˜ ì•ë¨¸ë¦¬ê°€ ë‚˜ì˜¨ê²ƒìœ¼ë¡œ ì¶”ì¸¡í•œë‹¤.
 		if (bufferedStr[i] == '<' || i == bufferLength) {
 			string filepath(getRealPath(bufferedStr.substr(lastTokenIndex, i - lastTokenIndex).c_str()));
 			_mkdir(filepath.c_str());
@@ -426,7 +427,7 @@ void checkSpeedAndPercentage(const char *filename, long long *elapseFileSize, lo
 		double kbps = (*elapseFileSize / 1024LL) / (elapseMS + (double)1e-9);
 		printf("%s]... kbps: %.3lf MB/s ", filename, kbps);
 		if (totalFileSize > 0LL) {
-			// totalFileSize °¡ -1 ÀÎ °æ¿ì´Â, <file-size>¸¦ ¾ËÁö ¸øÇß´Ù´Â °Í.
+			// totalFileSize ê°€ -1 ì¸ ê²½ìš°ëŠ”, <file-size>ë¥¼ ì•Œì§€ ëª»í–ˆë‹¤ëŠ” ê²ƒ.
 			double percentage = curFileSize * 100LL / (totalFileSize + (double)1e-9);
 			printf("(%.2lf%%)", percentage);
 		}
@@ -446,20 +447,20 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 		return -1;
 	}
 
-	//È®ÀåÀÚ °Ë»ç
+	//í™•ì¥ì ê²€ì‚¬
 	string extension;
 	extension = strrchr(fullname.c_str(), '.');
 
-	// ´ë¹®ÀÚ´Â ¼Ò¹®ÀÚ·Î º¯È¯ ÈÄ °Ë»ç
+	// ëŒ€ë¬¸ìëŠ” ì†Œë¬¸ìë¡œ ë³€í™˜ í›„ ê²€ì‚¬
 	for (int i = 0; i < extension.size(); ++i) {
 		if (extension[i] >= 'A' && extension[i] <= 'Z') {
 			extension[i] += - 'A' + 'a';
 		}
 	}
 
-	//¼±ÅÃÇÑ È®ÀåÀÚ°¡ ¾Æ´Ò¶§
+	//ì„ íƒí•œ í™•ì¥ìê°€ ì•„ë‹ë•Œ
 	if (extension.compare(".png") && extension.compare(".jpeg") && extension.compare(".bmp") && extension.compare(".jpg") && extension.compare(".png") && extension.compare(".dif") && extension.compare(".gif")) {
-		cout << extension << "Àº Àü¼ÛÀÌ Áö¿øµÇÁö ¾Ê´Â È®ÀåÀÚ ÀÔ´Ï´Ù." << endl << "ÀÌ¹ÌÁö¸¸ Áö¿øµÇ´Â È®ÀåÀÚ´Â ÇÁ·Î±×·¥À¸·Î jpeg, bmp, jpg, png, dif, gif¸¸ Àü¼ÛµË´Ï´Ù" << endl;
+		cout << extension << "ì€ ì „ì†¡ì´ ì§€ì›ë˜ì§€ ì•ŠëŠ” í™•ì¥ì ì…ë‹ˆë‹¤." << endl << "ì´ë¯¸ì§€ë§Œ ì§€ì›ë˜ëŠ” í™•ì¥ìëŠ” í”„ë¡œê·¸ë¨ìœ¼ë¡œ jpeg, bmp, jpg, png, dif, gifë§Œ ì „ì†¡ë©ë‹ˆë‹¤" << endl;
 		return -1;
 	}
 
@@ -469,7 +470,7 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 	printf("\nSendFileToServer: %s\n", fullname.c_str());
 	printf("Estimated File Size: %lld bytes\n", realFilesize);
 
-	// ÆÄÀÏÀÇ Å©±â°¡ ¼³Á¤ÇÑ Å©±â ÇÑµµ(UDP_FILESIZE_LIMIT) ¸¦ ³Ñ¾î°¡¸é, TCP·Î º¯°æÇÑ´Ù.
+	// íŒŒì¼ì˜ í¬ê¸°ê°€ ì„¤ì •í•œ í¬ê¸° í•œë„(UDP_FILESIZE_LIMIT) ë¥¼ ë„˜ì–´ê°€ë©´, TCPë¡œ ë³€ê²½í•œë‹¤.
 	bool switchedProtocol = false;
 	char servIP[STRING_LENGTH] = {};
 	sprintf(servIP, "%d.%d.%d.%d",
@@ -486,7 +487,7 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 	Sleep(100);
 
 	char buffer[BUFFER_SIZE] = {};
-	//ÆÄÀÏ ÀÌ¸§¿¡ ip ºÙÀÌ±â
+	//íŒŒì¼ ì´ë¦„ì— ip ë¶™ì´ê¸°
 	sprintf(buffer, "<send-file>%s_%s%c", ip.c_str(), filename, 0);
 	ClientSendToServer(isTCP, sock, buffer, BUFFER_SIZE, echoAddr, addrSize);
 
@@ -503,7 +504,7 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 
 	Sleep(100);
 
-	// ¹«°á¼º °Ë»ç ½ÃÀÛ
+	// ë¬´ê²°ì„± ê²€ì‚¬ ì‹œì‘
 	ZeroMemory(buffer, BUFFER_SIZE);
 	HASH_STR hash;
 
@@ -522,7 +523,7 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 		file.read((char *)&buffer, BUFFER_SIZE);
 		int recvBlockSize = 0;
 		isEof = file.eof();
-		// ³²Àº ºí·°ÀÇ Å©±â°¡ BUFFER_SIZEº¸´Ù Å« °æ¿ì, Á¤È®ÇÑ Å©±â·Î ÆÄÀÏ¿¡ ±â·ÏÇÑ´Ù.
+		// ë‚¨ì€ ë¸”ëŸ­ì˜ í¬ê¸°ê°€ BUFFER_SIZEë³´ë‹¤ í° ê²½ìš°, ì •í™•í•œ í¬ê¸°ë¡œ íŒŒì¼ì— ê¸°ë¡í•œë‹¤.
 		if (isEof) {
 			file.clear();
 			file.seekg(0, ios::end);
@@ -549,7 +550,7 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 
 	Sleep(100);
 
-	// ¹«°á¼º °Ë»ç¸¦ À§ÇÑ ÇØ½¬ °á°ú¸¦ ÇÔ²² Àü¼ÛÇÑ´Ù.
+	// ë¬´ê²°ì„± ê²€ì‚¬ë¥¼ ìœ„í•œ í•´ì‰¬ ê²°ê³¼ë¥¼ í•¨ê»˜ ì „ì†¡í•œë‹¤.
 	sprintf(buffer, "</send-file>%s\0", hash.c_str());
 	ClientSendToServer(isTCP, sock, buffer, strlen(buffer), echoAddr, addrSize);
 
@@ -561,17 +562,17 @@ long long SendFileToServer(bool& isTCP, const char * path, const char *filename,
 	return calculatedFileSize;
 }
 
-// Å¬¶óÀÌ¾ğÆ®°¡ º¸³½ Ã¹ ½ÅÈ£(<send-file>)¸¦ ±âÁØÀ¸·Î ºí·° ´ÜÀ§·Î ¼­¹ö¿¡¼­ ÀúÀåÇÑ´Ù.
+// í´ë¼ì´ì–¸íŠ¸ê°€ ë³´ë‚¸ ì²« ì‹ í˜¸(<send-file>)ë¥¼ ê¸°ì¤€ìœ¼ë¡œ ë¸”ëŸ­ ë‹¨ìœ„ë¡œ ì„œë²„ì—ì„œ ì €ì¥í•œë‹¤.
 long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clientSock, sockaddr_in& echoAddr, int* addrSize) {
 	char filename[STRING_LENGTH] = {};
 	long long ret = -1LL;
 	if (isBeginToSendFile(buffer, filename)) {
-		// <send-file> ÀÌÈÄ <file-size>
+		// <send-file> ì´í›„ <file-size>
 		ServerReceiveFromClient(isTCP, sock, buffer, BUFFER_SIZE, clientSock, echoAddr, addrSize);
 		long long realFilesize = getFileSizeFromBuffer(buffer);
 
 		if (realFilesize <= 0) {
-			// <file-size>°¡ »¡¸® µµÂøÇØ¼­ ÆÄÀÏ ÀÌ¸§¿¡ µé¾î°¬À» ¼ö ÀÖ´Ù.
+			// <file-size>ê°€ ë¹¨ë¦¬ ë„ì°©í•´ì„œ íŒŒì¼ ì´ë¦„ì— ë“¤ì–´ê°”ì„ ìˆ˜ ìˆë‹¤.
 			int nameLen = strlen(filename);
 			for (int i = 0; i < nameLen; ++i) {
 				if (filename[i] == '<' || filename[i] == '>') {
@@ -582,12 +583,12 @@ long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clie
 			}
 		}
 
-		// ¹«°á¼º °Ë»ç ÁØºñ
+		// ë¬´ê²°ì„± ê²€ì‚¬ ì¤€ë¹„
 		HASH_STR hash;
 
 		long long calculatedFileSize = 0LL;
 
-		// ÆÄÀÏÀÌ ÀÌ¹Ì ÀÖ´Ù¸é ÀÌ¾îÇÏ±â¸¦ ½ÃµµÇÑ´Ù.
+		// íŒŒì¼ì´ ì´ë¯¸ ìˆë‹¤ë©´ ì´ì–´í•˜ê¸°ë¥¼ ì‹œë„í•œë‹¤.
 		ifstream fileChk(filename, ios::in | ios::binary);
 		if (fileChk.is_open()) {
 			fileChk.seekg(0, ios::beg);
@@ -598,7 +599,7 @@ long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clie
 			fileChk.close();
 		}
 
-		// <send-file> ÀÌÈÄ <retry-from>¸¦ Å¬¶óÀÌ¾ğÆ®¿¡°Ô º¸³¿
+		// <send-file> ì´í›„ <retry-from>ë¥¼ í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ë³´ëƒ„
 		ZeroMemory(buffer, BUFFER_SIZE);
 		sprintf(buffer, "<retry-from>%lld", calculatedFileSize);
 		int recvSize = ServerSendToClient(isTCP, sock, buffer, BUFFER_SIZE, clientSock, echoAddr, *addrSize);
@@ -632,17 +633,20 @@ long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clie
 
 		string clientHash = extractHash(buffer);
 
-		// ¹«°á¼º °Ë»ç Á¾·á ¹× Ãâ·Â
+		// ë¬´ê²°ì„± ê²€ì‚¬ ì¢…ë£Œ ë° ì¶œë ¥
 		bool correctHash = compare_hash(clientHash, hash);
 		printf("Compare Data Integrity..\n");
 		printf("client: [%s]\nserver: [%s] .... %s\n", clientHash.c_str(), hash.c_str(), correctHash ? "CORRECT" : "FAIL");
 
-		// ±â´Ù¸®°í ÀÖÀ» Å¬¶óÀÌ¾ğÆ®¿¡°Ô (¾Æ¹« ¸Ş½ÃÁö³ª °¡´ÉÇÏÁö¸¸) Á¾·á ¸Ş½ÃÁö¸¦ º¸³¿
+		// ê¸°ë‹¤ë¦¬ê³  ìˆì„ í´ë¼ì´ì–¸íŠ¸ì—ê²Œ (ì•„ë¬´ ë©”ì‹œì§€ë‚˜ ê°€ëŠ¥í•˜ì§€ë§Œ) ì¢…ë£Œ ë©”ì‹œì§€ë¥¼ ë³´ëƒ„
 		ZeroMemory(buffer, sizeof(buffer));
 		sprintf(buffer, "%s to File Transfer: \"%s\"\n", correctHash ? "Successed" : "Failed", filename);
 		ServerSendToClient(isTCP, sock, buffer, strlen(buffer), clientSock, echoAddr, *addrSize);
 
 		ret = calculatedFileSize;
+
+		// store this file's information to database
+		mysql_insert_image(hash.c_str(), filename, inet_ntoa(echoAddr.sin_addr));
 	}
 
 	return ret;
@@ -680,7 +684,7 @@ long long SendDirectoryToServer(bool isTCP, char *pathname, SOCKET& sock, sockad
 		string relativePath = prefix + f.directory.substr(root.length());
 		totalFilesSize += SendFileToServer(isTCP, relativePath.c_str(), f.filename.data(), sock, echoAddr, addrSize);
 
-		// Àü¼ÛÀÇ ¾ÈÁ¤¼ºÀ» À§ÇØ °¢ ÆÄÀÏ¸¶´Ù Àü¼ÛÀÇ µô·¹ÀÌ¸¦ µĞ´Ù.
+		// ì „ì†¡ì˜ ì•ˆì •ì„±ì„ ìœ„í•´ ê° íŒŒì¼ë§ˆë‹¤ ì „ì†¡ì˜ ë”œë ˆì´ë¥¼ ë‘”ë‹¤.
 		Sleep(500);
 	}
 

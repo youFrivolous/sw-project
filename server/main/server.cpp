@@ -12,7 +12,10 @@ bool askInformation(int& port) {
 	return false;
 }
 
-int main() {
+int main(){
+	// DB Connection
+	mysql_init_connection();
+
 	SOCKET sock;                       /* Socket */
 	sockaddr_in echoServAddr;          /* Local address */
 	sockaddr_in echoClntAddr;          /* Client address */
@@ -36,11 +39,11 @@ int main() {
 	}
 
 	/* Run forever */
-	while (true) {
+	while(true){
 		// need to accept if use tcp
 		printf("Waiting for data...");
-
 		fflush(stdout);
+
 		ZeroMemory(echoBuffer, BUFFER_SIZE);
 		/* Block until receive message from a client */
 		if ((recvMsgSize = ServerReceiveFromClient(usingTCP, sock, echoBuffer, BUFFER_SIZE, clientSock, echoClntAddr, &cliLen)) == SOCKET_ERROR)
@@ -65,5 +68,7 @@ int main() {
 
 	WSACleanup();  /* Cleanup Winsock */
 	closesocket(sock);
+
+	mysql_close_connection();
 	return 0;
 }
