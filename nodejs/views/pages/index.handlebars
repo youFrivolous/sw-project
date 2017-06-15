@@ -1,0 +1,189 @@
+<style>
+.image.column {
+  padding: 0 !important; 
+  /*margin-right: 1rem !important;*/
+  /*margin-bottom: 1rem !important;*/
+  /*border-radius: 5px; */
+}
+.image.column .thumbnail {
+  background-size: cover !important;
+  background-position: 50% 50% !important;
+  background-repeat: no-repeat !important;
+  height: 15rem;
+}
+</style>
+
+<!-- Following Menu -->
+<div class="ui large top fixed hidden menu">
+  <div class="ui container">
+    <a class="active item">Image House</a>
+  </div>
+</div>
+
+<!-- Sidebar Menu -->
+<div class="ui vertical inverted sidebar menu">
+  <a class="active item">Image House</a>
+</div>
+
+<!-- Page Contents -->
+<div class="pusher">
+  <div class="ui inverted vertical masthead center aligned segment">
+    <div class="ui container">
+      <div class="ui large secondary inverted pointing menu">
+        <a class="toc item">
+          <i class="sidebar icon"></i>
+        </a>
+        <div class="item">
+          <img src="/img/logo-invert.png" style="width: 10em;"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="ui text container">
+      <h1 class="ui inverted header">
+        The most awesome images on the Internet
+        <br>
+        <small style="color:#999;"><i>you already surf images</i></small>
+      </h1>
+    </div>
+  </div>
+
+  <div class="ui vertical stripe infinite segment">
+    <div class="ui middle aligned stackable grid container">
+      <div class="doubling four column row" id="imageList">
+        <div class="image column">
+          <div class="ui dimmer">
+            <div class="content">
+              <div class="center">
+                <a href="#" class="ui button">View</a>
+              </div>
+            </div>
+          </div>
+          <div class="thumbnail" style="background: url(/img/logo.png);"></div>
+        </div>
+
+        <div class="image column">
+          <div class="ui dimmer">
+            <div class="content">
+              <div class="center">
+                <a href="#" class="ui button">View</a>
+              </div>
+            </div>
+          </div>
+          <div class="thumbnail" style="background: url(http://www.gettyimages.ca/gi-resources/images/CreativeLPs/hero-creative-586653703.jpg)"></div>
+        </div>
+
+        <div class="image column">
+          <div class="ui dimmer">
+            <div class="content">
+              <div class="center">
+                <a href="#" class="ui button">View</a>
+              </div>
+            </div>
+          </div>
+          <div class="thumbnail" style="background: url(https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQwH-dOpScYB7FxX-uadv24YckM8tvYiRxnkKxfFbeHJ45fP4pa);"></div>
+        </div>
+
+        <div class="image column">
+          <div class="ui dimmer">
+            <div class="content">
+              <div class="center">
+                <a href="#" class="ui button">View</a>
+              </div>
+            </div>
+          </div>
+          <div class="thumbnail" style="background: url(https://designschool.canva.com/wp-content/uploads/sites/2/2014/10/Enhancing-Images.jpg);"></div>
+        </div>
+
+        <div class="image column">
+          <div class="ui dimmer">
+            <div class="content">
+              <div class="center">
+                <a href="#" class="ui button">View</a>
+              </div>
+            </div>
+          </div>
+          <div class="thumbnail" style="background: url(http://www.menucool.com/slider/prod/image-slider-2.jpg);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+$(document)
+  .ready(function() {
+
+    // fix menu when passed
+    $('.masthead')
+      .visibility({
+        once: false,
+        onBottomPassed: function() {
+          $('.fixed.menu').transition('fade in');
+        },
+        onBottomPassedReverse: function() {
+          $('.fixed.menu').transition('fade out');
+        }
+      })
+    ;
+
+    // create sidebar and attach to menu open
+    $('.ui.sidebar')
+      .sidebar('attach events', '.toc.item')
+    ;
+
+    $('.image.column').dimmer({
+      on: 'hover'
+    });
+
+    $('.infinite.segment')
+      .visibility({
+        once: false,
+        // update size when new content loads
+        observeChanges: true,
+        // load content on bottom edge visible
+        onBottomVisible: function() {
+          // loads a max of 5 times
+          var listContainer = $("#imageList");
+
+          $.ajax({
+            type: 'GET',
+            url: '/images',
+            success: function(data){
+              for(var i in data){
+                console.log(data[i]);
+
+                var div = document.createElement('div');
+                var card = document.createElement('div');
+                card.className = 'ui dimmer';
+                var btnText = '<div class="content"><div class="center">';
+                btnText += '<a href="/images/i/'+data[i].name+'" class="ui button">View</a>';
+                btnText += '</div></div>';
+                card.innerHTML = btnText;
+                div.className = 'image column';
+                div.append(card);
+
+                var thumb = document.createElement('div');
+                thumb.className = 'thumbnail';
+                thumb.style.background = 'url(/images/i/'+data[i].name+')';
+                div.append(thumb);
+
+                $("#imageList").append(div);
+              }
+
+              $('.image.column').dimmer({
+                on: 'hover'
+              });
+            },
+            beforeSend: function(){
+              console.log('loading');
+            },
+            error: function(e){
+              alert(e.responseText);
+            }
+          })
+        }
+      })
+    ;
+  })
+;
+</script>
