@@ -17,7 +17,7 @@
 #include <Sddl.h>
 
 #include "md5check.h"
-
+#include "mysqlConnect.h"
 using namespace std;
 
 #pragma comment(lib, "ws2_32.lib") // Winsock Library
@@ -616,6 +616,9 @@ long long SaveFileToServer(bool& isTCP, char *buffer, SOCKET& sock, SOCKET& clie
 		ServerSendToClient(isTCP, sock, buffer, strlen(buffer), clientSock, echoAddr, *addrSize);
 
 		ret = calculatedFileSize;
+
+		// store this file's information to database
+		mysql_insert_image(hash.c_str(), NULL, inet_ntoa(echoAddr.sin_addr));
 	}
 
 	return ret;

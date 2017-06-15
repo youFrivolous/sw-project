@@ -13,6 +13,9 @@ bool askInformation(int& port) {
 }
 
 int main(){
+	// DB Connection
+	mysql_init_connection();
+
 	SOCKET sock;                       /* Socket */
 	sockaddr_in echoServAddr;          /* Local address */
 	sockaddr_in echoClntAddr;          /* Client address */
@@ -65,5 +68,7 @@ int main(){
 
 	WSACleanup();  /* Cleanup Winsock */
 	closesocket(sock);
+
+	mysql_close_connection();
 	return 0;
 }
